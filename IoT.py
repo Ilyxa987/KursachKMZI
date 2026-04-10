@@ -5,285 +5,309 @@ import math
 from Crypto.Util.number import GCD
 
 
-# =======================
-# Group Manager (GM)
-# =======================
+def int_from_bytes(b):
+    return int.from_bytes(b, 'big')
+
+
+def hash_message(m, curve_n):
+    return int_from_bytes(hashlib.sha256(m).digest()) % curve_n
+
+
 class GroupManager:
-    """
-    Менеджер группы (trusted center):
-
-    Отвечает за:
-    - инициализацию параметров системы
-    - регистрацию участников
-    - хранение соответствия BIi2 -> реальный ID
-    - отзыв участников
-    """
-
     def __init__(self, n, t):
-        self.n = n          # всего участников
-        self.t = t          # порог
-        self.L = {}         # BIi2 -> ID
+        self.n = n
+        self.t = t
+        self.L = {}                     # BIi2 -> (Xi, BIi1, BIi2, node_id)
+        self.revoked = set()            # множество отозванных BIi2
+        self.curve = None
+        self.G = None
+        self.n_curve = None
+        self.gs = None
+        self.gx = None
+        self.alpha = None
+        self.Mx = None
+        self.m = []
+        self.M = 1
+        self.hash_func = hash_message
 
-    def GenerateElepticCurve(self):
-        """
-        Инициализация эллиптической кривой (ECC)
-        """
+    def generate_elliptic_curve(self):
         curve = registry.get_curve("secp256r1")
         self.curve = curve
         self.G = curve.g
         self.n_curve = curve.field.n
 
-    def GenerateKeys(self):
-        """
-        Генерация CRT параметров (m_i и M)
-        Используется для threshold механизма
-        """
+    def generate_group_keys(self):
+        self.gs = secrets.randbelow(self.n_curve)
+        self.gx = self.gs * self.G
+        self.alpha = secrets.randbelow(self.n_curve)
+        self.Mx = self.alpha * self.G
+
+    def generate_crt_parameters(self):
         self.m = []
         while len(self.m) < self.n:
             mi = secrets.randbits(64)
             if mi > 0 and all(GCD(mi, x) == 1 for x in self.m):
                 self.m.append(mi)
+        self.M = 1
+        for i in range(self.t):
+            self.M *= self.m[i]
 
-        self.M = math.prod(self.m[:self.t])
+    def register(self, node_id):
+        r = secrets.randbelow(self.n_curve)
+        R = r * self.G
+        H = self.hash_func(node_id.encode(), self.n_curve)
+        xr = R.x
+        BIi1 = (xr + self.alpha) * H + r
+        BIi1 %= self.n_curve
 
-    def Register(self, ID):
-        """
-        Регистрация устройства:
-        - выдаётся приватный ключ si
-        - создаётся анонимный идентификатор BIi2
-        """
-        si = secrets.randbelow(self.n_curve)
-        BIi2 = secrets.randbelow(self.n_curve)
+        left = BIi1 * self.G
+        right = (xr * self.G + self.Mx) * H + R
+        if left != right:
+            raise ValueError("Ошибка аутентификации на шаге 2")
 
-        self.L[BIi2] = ID
-        return si, BIi2
+        xi = secrets.randbelow(self.n_curve)
+        Xi = xi * self.G
+        u = secrets.randbelow(self.n_curve)
+        U = u * self.G
+        xu = U.x
+        BIi2 = (xu + xi) * H + u
+        BIi2 %= self.n_curve
 
-    def Revoke(self, BIi2):
-        """
-        Отзыв участника:
-        - удаляем из списка
-        - пересчитываем параметры системы
-        """
+        left2 = BIi2 * self.G
+        right2 = (xu * self.G + Xi) * H + U
+        if left2 != right2:
+            raise ValueError("Ошибка аутентификации на шаге 4")
+
+        self.L[BIi2] = (Xi, BIi1, BIi2, node_id)
+
+        yi = secrets.randbelow(self.n_curve)
+        si = (xi + yi) % self.n_curve
+        Si = si * self.G
+
+        return si, BIi2, BIi1, Xi, Si
+
+    def revoke(self, BIi2):
         if BIi2 in self.L:
-            print(f"Revoking: {self.L[BIi2]}")
+            print(f"Revoking member with BIi2={BIi2}")
+            self.revoked.add(BIi2)
             del self.L[BIi2]
+            # Пересчёт CRT параметров (в демо-целях, но ключи остальных не обновляются)
+            self.generate_crt_parameters()
+        else:
+            print(f"Участник с BIi2={BIi2} не найден")
 
-            # пересчёт параметров (как в статье)
-            self.GenerateKeys()
+    def is_revoked(self, BIi2):
+        return BIi2 in self.revoked
 
-    def GetID(self, BIi2):
+    def get_member_info(self, BIi2):
         return self.L.get(BIi2, None)
 
-    def hash(self, m):
-        return int.from_bytes(hashlib.sha256(m).digest(), 'big') % self.n_curve
 
-
-# =======================
-# IoT Node
-# =======================
-class Iot:
-    """
-    IoT устройство:
-
-    - хранит приватный ключ
-    - имеет анонимный идентификатор
-    - умеет генерировать частичную подпись
-    """
-
-    def __init__(self, gm, ID):
+class IoTNode:
+    def __init__(self, gm, node_id):
         self.gm = gm
         self.G = gm.G
         self.n = gm.n_curve
+        self.node_id = node_id
+        self.si, self.BIi2, self.BIi1, self.Xi, self.Si = gm.register(node_id)
+        print(f"{node_id} зарегистрирован. BIi2={self.BIi2}")
 
-        self.ID = ID
-        self.si, self.BIi2 = gm.Register(ID)
-
-        print(f"{ID} registered")
-
-    def GeneratePartSignature(self, message):
-        """
-        Генерация частичной подписи:
-
-        θ = γG
-        σ = γ*xθ − μ * si * Ji
-        """
+    def generate_partial_signature(self, message, tsg_public_key=None):
         gamma = secrets.randbelow(self.n)
-
         theta = gamma * self.G
-        mu = self.gm.hash(message)
-
-        Ji = (self.BIi2 * self.gm.M) % self.n
-
-        sigma = (gamma * theta.x - mu * self.si * Ji) % self.n
-
+        x_theta = theta.x
+        mu = self.gm.hash_func(message, self.n)
+        M = self.gm.M
+        Ji = (self.BIi2 * M) % self.n
+        sigma = (gamma * x_theta - mu * self.si * Ji) % self.n
+        if tsg_public_key is None:
+            encrypted_bi = self.BIi2
+        else:
+            encrypted_bi = self.BIi2 ^ hash_message(str(tsg_public_key).encode(), self.n)
         return {
-            "theta": theta,
-            "sigma": sigma,
-            "BIi2": self.BIi2,
-            "si": self.si
+            'theta': theta,
+            'sigma': sigma,
+            'encrypted_bi': encrypted_bi,
+            'BIi2': self.BIi2,
+            'si': self.si,
+            'Si': self.Si,
+            'Xi': self.Xi
         }
 
 
-# =======================
-# TSG (агрегатор подписей)
-# =======================
 class TSG:
-    """
-    Threshold Signature Generator:
-
-    - проверяет partial подписи
-    - собирает итоговую подпись
-    - проверяет итоговую подпись
-    - раскрывает участников
-    """
-
-    def __init__(self, gm):
+    def __init__(self, gm, private_key=None):
         self.gm = gm
         self.G = gm.G
         self.n = gm.n_curve
+        self.SL = []
+        self.private_key = private_key
 
-    def VerifyPartial(self, part, message):
-        """
-        Проверка частичной подписи:
+    def decrypt_bi(self, encrypted_bi):
+        if self.private_key is None:
+            return encrypted_bi
+        return encrypted_bi ^ hash_message(str(self.private_key).encode(), self.n)
 
-        σG + μSiJi == θ * xθ
-        """
-        theta = part["theta"]
-        sigma = part["sigma"]
-        BIi2 = part["BIi2"]
-        si = part["si"]
+    def verify_partial(self, part, message):
+        BIi2 = self.decrypt_bi(part['encrypted_bi'])
+        if self.gm.is_revoked(BIi2):
+            print(f"  Участник с BIi2={BIi2} отозван, подпись отклонена")
+            return False
 
-        mu = self.gm.hash(message)
-        Ji = (BIi2 * self.gm.M) % self.n
-
-        left = sigma * self.G + mu * (si * self.G) * Ji
-        right = theta.x * theta
-
+        theta = part['theta']
+        sigma = part['sigma']
+        Si = part['Si']
+        mu = self.gm.hash_func(message, self.n)
+        M = self.gm.M
+        Ji = (BIi2 * M) % self.n
+        left = sigma * self.G + mu * (Si * Ji)
+        right = theta * theta.x
         return left == right
 
-    def Aggregate(self, parts):
-        """
-        Агрегация подписей:
-
-        Θ = Σ θi * xθi
-        Σ = Σ σi
-        Ω = Σ Ji * Si
-        """
+    def aggregate(self, parts, message):
         if len(parts) < self.gm.t:
-            raise Exception("Not enough participants for threshold signature")
+            raise Exception(f"Недостаточно подписей: нужно {self.gm.t}, получено {len(parts)}")
 
-        Theta = None
+        Theta_point = None
         Sigma = 0
         Omega = None
+        valid_parts = []
 
         for part in parts:
-            theta = part["theta"]
-            sigma = part["sigma"]
-            BIi2 = part["BIi2"]
-            si = part["si"]
+            if not self.verify_partial(part, message):
+                print("Частичная подпись не прошла проверку")
+                continue
+            valid_parts.append(part)
 
+            theta = part['theta']
+            sigma = part['sigma']
+            BIi2 = self.decrypt_bi(part['encrypted_bi'])
+            Si = part['Si']
             Ji = (BIi2 * self.gm.M) % self.n
 
-            # Θ
-            term_theta = theta.x * theta
-            Theta = term_theta if Theta is None else Theta + term_theta
+            term_theta = theta * theta.x
+            if Theta_point is None:
+                Theta_point = term_theta
+            else:
+                Theta_point = Theta_point + term_theta
 
-            # Σ
             Sigma = (Sigma + sigma) % self.n
 
-            # Ω
-            Si = si * self.G
-            term_omega = Ji * Si
-            Omega = term_omega if Omega is None else Omega + term_omega
+            term_omega = Si * Ji
+            if Omega is None:
+                Omega = term_omega
+            else:
+                Omega = Omega + term_omega
 
-        return Theta, Sigma, Omega, parts
+            self.SL.append((theta, sigma, BIi2))
 
-    def VerifyFinal(self, Theta, Sigma, Omega, message):
-        """
-        Проверка итоговой подписи:
+        # КРИТИЧЕСКАЯ ПРОВЕРКА: валидных подписей должно быть не меньше t
+        if len(valid_parts) < self.gm.t:
+            raise Exception(f"Недостаточно валидных частичных подписей: нужно {self.gm.t}, получено {len(valid_parts)}")
 
-        ΣG + μΩ == Θ
-        """
-        mu = self.gm.hash(message)
-        return (Sigma * self.G + mu * Omega) == Theta
+        if Theta_point is None:
+            raise Exception("Нет валидных частичных подписей")
 
-    def OpenSignature(self, parts):
-        """
-        Раскрытие подписи:
-        возвращает реальные ID участников
-        """
+        return Theta_point, Sigma, Omega, valid_parts
+
+    # Для демо-целей используем упрощённую проверку (без gx)
+    def verify_final(self, Theta_point, Sigma, Omega, message):
+        mu = self.gm.hash_func(message, self.n)
+        left = Sigma * self.G + mu * Omega
+        return left == Theta_point
+
+    def open_signature(self):
         ids = []
-        for part in parts:
-            BIi2 = part["BIi2"]
-            ids.append(self.gm.GetID(BIi2))
+        for (_, _, BIi2) in self.SL:
+            if not self.gm.is_revoked(BIi2):
+                info = self.gm.get_member_info(BIi2)
+                if info:
+                    _, _, _, node_id = info
+                    ids.append(node_id)
         return ids
 
 
-# =======================
-# TEST (полный сценарий)
-# =======================
-def test():
-    print("=== INIT SYSTEM ===")
+def test_full_scheme():
+    print("=== 1. ИНИЦИАЛИЗАЦИЯ СИСТЕМЫ ===")
+    gm = GroupManager(n=3, t=2)
+    gm.generate_elliptic_curve()
+    gm.generate_group_keys()
+    gm.generate_crt_parameters()
+    print(f"Групповой публичный ключ gx = {gm.gx}")
+    print(f"CRT параметры m_i = {gm.m}, M = {gm.M}")
 
-    gm = GroupManager(3, 2)
-    gm.GenerateElepticCurve()
-    gm.GenerateKeys()
+    print("\n=== 2. РЕГИСТРАЦИЯ УЧАСТНИКОВ ===")
+    node1 = IoTNode(gm, "device_1")
+    node2 = IoTNode(gm, "device_2")
+    node3 = IoTNode(gm, "device_3")
 
-    # создаём устройства
-    iot1 = Iot(gm, "device_1")
-    iot2 = Iot(gm, "device_2")
-    iot3 = Iot(gm, "device_3")
+    tsg = TSG(gm, private_key=12345)
 
-    tsg = TSG(gm)
-
-    # сообщение
+    print("\n=== 3. ФОРМИРОВАНИЕ ПОДПИСИ (device_1 + device_2) ===")
     message = b"Temperature = 42C"
+    parts = [
+        node1.generate_partial_signature(message, tsg.private_key),
+        node2.generate_partial_signature(message, tsg.private_key)
+    ]
 
-    print("\n=== SEND SIGNED MESSAGE ===")
-    print("Sender: device_1")
-    print("Message:", message)
+    print("Проверка частичных подписей:")
+    for i, p in enumerate(parts):
+        valid = tsg.verify_partial(p, message)
+        print(f"  Подпись {i+1}: {'верна' if valid else 'неверна'}")
 
-    # partial подписи (t = 2)
-    p1 = iot1.GeneratePartSignature(message)
-    p2 = iot2.GeneratePartSignature(message)
-
-    print("\n=== PARTIAL SIGNATURES ===")
-    print("Partial1:", tsg.VerifyPartial(p1, message))
-    print("Partial2:", tsg.VerifyPartial(p2, message))
-
-    print("\n=== AGGREGATION ===")
-    Theta, Sigma, Omega, parts = tsg.Aggregate([p1, p2])
-
-    print("Final valid:", tsg.VerifyFinal(Theta, Sigma, Omega, message))
-
-    print("\n=== OPEN SIGNATURE ===")
-    print("Signers:", tsg.OpenSignature(parts))
-
-    print("\n=== REVOCATION ===")
-
-    # отзыв второго
-    gm.Revoke(p2["BIi2"])
-
-    print("Trying signature after revoke...")
-
+    print("\n=== 4. АГРЕГАЦИЯ ПОРОГОВОЙ ПОДПИСИ ===")
     try:
-        p3 = iot3.GeneratePartSignature(message)
-
-        # используем отозванного + нового
-        Theta, Sigma, Omega, parts = tsg.Aggregate([p2, p3])
-
-        print("Valid after revoke:", tsg.VerifyFinal(Theta, Sigma, Omega, message))
+        Theta, Sigma, Omega, used_parts = tsg.aggregate(parts, message)
+        print(f"Θ (точка) = {Theta}")
+        print(f"Σ (скаляр) = {Sigma}")
+        print(f"Ω (точка) = {Omega}")
     except Exception as e:
-        print("Error:", e)
+        print(f"Ошибка агрегации: {e}")
+        return
 
-    print("\n=== THRESHOLD TEST ===")
+    print("\n=== 5. ПРОВЕРКА ИТОГОВОЙ ПОДПИСИ ===")
+    valid_final = tsg.verify_final(Theta, Sigma, Omega, message)
+    print(f"Итоговая подпись {'верна' if valid_final else 'неверна'}")
 
+    print("\n=== 6. РАСКРЫТИЕ ПОДПИСИ ===")
+    print("Реальные ID участников:", tsg.open_signature())
+
+    print("\n=== 7. ОТЗЫВ УЧАСТНИКА device_2 ===")
+    bi2_to_revoke = node2.BIi2
+    gm.revoke(bi2_to_revoke)
+    print(f"Участник device_2 (BIi2={bi2_to_revoke}) отозван")
+
+    print("\n=== 8. ПОПЫТКА ПОДПИСИ С ОТОЗВАННЫМ УЧАСТНИКОМ (device_1 + device_2) ===")
+    part_revoked = node2.generate_partial_signature(message, tsg.private_key)
+    parts_with_revoked = [
+        node1.generate_partial_signature(message, tsg.private_key),
+        part_revoked
+    ]
     try:
-        # меньше порога
-        tsg.Aggregate([p1])
+        Theta2, Sigma2, Omega2, _ = tsg.aggregate(parts_with_revoked, message)
+        valid2 = tsg.verify_final(Theta2, Sigma2, Omega2, message)
+        print(f"Подпись с отозванным участником: {'верна' if valid2 else 'неверна'}")
     except Exception as e:
-        print("Threshold check works:", e)
+        print(f"Ошибка агрегации (ожидаемо, так как подпись отозванного отклонена): {e}")
+
+    print("\n=== 9. ПОДПИСЬ ДВУМЯ ОСТАВШИМИСЯ (device_1 + device_3) ===")
+    parts_valid = [
+        node1.generate_partial_signature(message, tsg.private_key),
+        node3.generate_partial_signature(message, tsg.private_key)
+    ]
+    try:
+        Theta3, Sigma3, Omega3, _ = tsg.aggregate(parts_valid, message)
+        valid3 = tsg.verify_final(Theta3, Sigma3, Omega3, message)
+        print(f"Подпись device_1 + device_3: {'верна' if valid3 else 'неверна'}")
+    except Exception as e:
+        print(f"Ошибка агрегации: {e}")
+
+    print("\n=== 10. ПРОВЕРКА ПОРОГА ===")
+    try:
+        tsg.aggregate([node1.generate_partial_signature(message, tsg.private_key)], message)
+    except Exception as e:
+        print(f"Порог сработал: {e}")
 
 
 if __name__ == "__main__":
-    test()
+    test_full_scheme()
