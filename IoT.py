@@ -3,18 +3,18 @@ import tinyec
 
 
 class IoT:
-    ID: int
-    x: int
-    X: tinyec.ec.Point
-    u: int
-    U: tinyec.ec.Point
+    ID: int  # Идентификатор IoT
+    x: int  # Случайный закрытый ключ
+    X: tinyec.ec.Point  # Открытый ключ
+    u: int  # Случайное число
+    U: tinyec.ec.Point  #
     BI: int
     s: int
     S: tinyec.ec.Point
-    y: int
+    y: int  # Случайное число
     O: tinyec.ec.Point
-    m: str
-    lu: str
+    m: str  # Сообщение
+    lu: str  # Хэш сообщения
 
     def __init__(self):
         print('IoT init')
