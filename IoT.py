@@ -310,7 +310,7 @@ def test_full_scheme():
     print("\n=== 2. РЕГИСТРАЦИЯ УЧАСТНИКОВ ===")
     node1 = IoTNode(gm, "device_1", tsg_pubkey)
     node2 = IoTNode(gm, "device_2", tsg_pubkey)
-    node3 = IoTNode(gm, "device_3", tsg_pubkey)
+    node3 = IoTNode(gm, "device_3 ", tsg_pubkey)
 
     tsg = TSG(gm, private_key=tsg_privkey)
 
