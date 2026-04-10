@@ -55,7 +55,6 @@ class GroupManager:
         self.M = math.prod(self.m[:self.t])
         self.gs = random.randint(1, self.p)
         self.gx = self.gs * self.G
-    
 
 class Iot:
 
