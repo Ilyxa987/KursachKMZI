@@ -1,222 +1,288 @@
 from tinyec import registry
-import random
-from Crypto.Util.number import GCD
 import secrets
 import hashlib
 import math
+from Crypto.Util.number import GCD
 
 
 # =======================
 # Group Manager (GM)
 # =======================
 class GroupManager:
+    """
+    Менеджер группы (trusted center):
 
-    def __init__(self, n: int, t: int):
-        if t >= n:
-            raise ValueError("t must be < n")
-        self.n = n
-        self.t = t
-        self.L = {}  # BIi2 -> ID
+    Отвечает за:
+    - инициализацию параметров системы
+    - регистрацию участников
+    - хранение соответствия BIi2 -> реальный ID
+    - отзыв участников
+    """
 
-    # =======================
-    # INIT
-    # =======================
+    def __init__(self, n, t):
+        self.n = n          # всего участников
+        self.t = t          # порог
+        self.L = {}         # BIi2 -> ID
+
     def GenerateElepticCurve(self):
+        """
+        Инициализация эллиптической кривой (ECC)
+        """
         curve = registry.get_curve("secp256r1")
         self.curve = curve
-        self.p = curve.field.p
-        self.n_curve = curve.field.n   # 🔥 ВАЖНО
-        self.a = curve.a
-        self.b = curve.b
         self.G = curve.g
+        self.n_curve = curve.field.n
 
-    def GenerateGroupManagerKeys(self):
-        self.Ms = secrets.randbelow(self.n_curve - 1) + 1
-        self.Mx = self.Ms * self.G
-
-    def GenerateGroupKeys(self):
+    def GenerateKeys(self):
+        """
+        Генерация CRT параметров (m_i и M)
+        Используется для threshold механизма
+        """
         self.m = []
-        while len(self.m) != self.n:
+        while len(self.m) < self.n:
             mi = secrets.randbits(64)
-            if mi == 0:
-                continue
-
-            if len(self.m) == 0:
-                self.m.append(mi)
-                continue
-
-            if all(GCD(mi, x) == 1 for x in self.m):
+            if mi > 0 and all(GCD(mi, x) == 1 for x in self.m):
                 self.m.append(mi)
 
         self.M = math.prod(self.m[:self.t])
 
-        self.gs = secrets.randbelow(self.n_curve - 1) + 1
-        self.gx = self.gs * self.G
+    def Register(self, ID):
+        """
+        Регистрация устройства:
+        - выдаётся приватный ключ si
+        - создаётся анонимный идентификатор BIi2
+        """
+        si = secrets.randbelow(self.n_curve)
+        BIi2 = secrets.randbelow(self.n_curve)
 
-    def TakeOpens(self):
-        return self.a, self.b, self.G, self.gx, self._hash, self.M
-
-    def TakeSecrets(self):
-        return self.gs, self.m
-
-    # =======================
-    # REGISTRATION
-    # =======================
-    def CheckID(self, ID):
-        return ID not in self.L.values()
-
-    def FirstAnonimization(self):
-        r = secrets.randbelow(self.n_curve - 1) + 1
-        R = r * self.G
-        BIi1 = (R.x + self.Ms + r) % self.n_curve
-        return R, BIi1
-
-    def VerifyB2(self, Xi, U, BIi1, BIi2):
-        return (BIi2 * self.G) == (Xi + U)
-
-    def AddMember(self, ID, Xi, BIi1, BIi2):
         self.L[BIi2] = ID
+        return si, BIi2
 
-    def NotificateMember(self, mi):
-        return self.M // mi
+    def Revoke(self, BIi2):
+        """
+        Отзыв участника:
+        - удаляем из списка
+        - пересчитываем параметры системы
+        """
+        if BIi2 in self.L:
+            print(f"Revoking: {self.L[BIi2]}")
+            del self.L[BIi2]
 
-    def GenerateSecondPartKey(self, BIi2):
-        yi = secrets.randbelow(self.n_curve - 1) + 1
-        Yi = yi * self.G
-        return yi, Yi
+            # пересчёт параметров (как в статье)
+            self.GenerateKeys()
 
-    def SendPublicKey(self, Yi):
-        print("Broadcast Yi:", Yi)
-
-    def SendPrivateKey(self, yi):
-        return yi
-
-    # =======================
-    # OPENING
-    # =======================
-    def OpenSignature(self, Theta, Sigma):
-        print("Opening signature (stub)")
-        return None
-
-    def GetIDbyBI2(self, BIi2):
+    def GetID(self, BIi2):
         return self.L.get(BIi2, None)
 
-    def GenerateNewM(self, k):
-        return math.prod(self.m[:k])
-
-    def _hash(self, data: bytes):
-        return int.from_bytes(hashlib.sha256(data).digest(), 'big') % self.n_curve
+    def hash(self, m):
+        return int.from_bytes(hashlib.sha256(m).digest(), 'big') % self.n_curve
 
 
 # =======================
 # IoT Node
 # =======================
 class Iot:
+    """
+    IoT устройство:
 
-    def __init__(self, GM: GroupManager):
-        self.GM = GM
-        self.G = GM.G
-        self.n = GM.n_curve
+    - хранит приватный ключ
+    - имеет анонимный идентификатор
+    - умеет генерировать частичную подпись
+    """
 
-    # =======================
-    # REGISTRATION
-    # =======================
-    def Register(self, ID):
+    def __init__(self, gm, ID):
+        self.gm = gm
+        self.G = gm.G
+        self.n = gm.n_curve
 
-        if not self.GM.CheckID(ID):
-            raise Exception("ID already exists")
+        self.ID = ID
+        self.si, self.BIi2 = gm.Register(ID)
 
-        # STEP 1
-        R, BIi1 = self.GM.FirstAnonimization()
+        print(f"{ID} registered")
 
-        # STEP 2
-        self.xi = secrets.randbelow(self.n - 1) + 1
-        Xi = self.xi * self.G
+    def GeneratePartSignature(self, message):
+        """
+        Генерация частичной подписи:
 
-        u = secrets.randbelow(self.n - 1) + 1
-        U = u * self.G
+        θ = γG
+        σ = γ*xθ − μ * si * Ji
+        """
+        gamma = secrets.randbelow(self.n)
 
-        # 🔥 КОРРЕКТНЫЙ BIi2
-        BIi2 = (self.xi + u) % self.n
+        theta = gamma * self.G
+        mu = self.gm.hash(message)
 
-        # STEP 3
-        if not self.GM.VerifyB2(Xi, U, BIi1, BIi2):
-            print("DEBUG:")
-            print("BIi2 * G:", BIi2 * self.G)
-            print("Xi + U:", Xi + U)
-            raise Exception("Verification failed")
+        Ji = (self.BIi2 * self.gm.M) % self.n
 
-        self.GM.AddMember(ID, Xi, BIi1, BIi2)
+        sigma = (gamma * theta.x - mu * self.si * Ji) % self.n
 
-        # STEP 4
-        mi = self.GM.m[0]
-        Mi = self.GM.NotificateMember(mi)
-
-        # STEP 5
-        yi, Yi = self.GM.GenerateSecondPartKey(BIi2)
-
-        self.GM.SendPublicKey(Yi)
-        yi = self.GM.SendPrivateKey(yi)
-
-        # итоговый ключ
-        self.si = (self.xi + yi) % self.n
-        self.BIi2 = BIi2
-        self.M = self.GM.M
-
-        print("✅ Registered:", ID)
-        print("Private key si:", self.si)
-
-    # =======================
-    # SIGNATURE
-    # =======================
-    def GeneratePartSignature(self, message: bytes):
-        gamma_i = secrets.randbelow(self.n - 1) + 1
-
-        self.theta = gamma_i * self.G
-        x_theta = self.theta.x
-
-        mu = self.GM._hash(message)
-
-        Ji = (self.BIi2 * self.M) % self.n
-
-        self.sigma = (gamma_i * x_theta - mu * self.si * Ji) % self.n
-
-    def SendPartSignature(self):
         return {
-            "theta": self.theta,
-            "sigma": self.sigma,
-            "BIi2": self.BIi2
+            "theta": theta,
+            "sigma": sigma,
+            "BIi2": self.BIi2,
+            "si": self.si
         }
 
 
 # =======================
-# TEST
+# TSG (агрегатор подписей)
+# =======================
+class TSG:
+    """
+    Threshold Signature Generator:
+
+    - проверяет partial подписи
+    - собирает итоговую подпись
+    - проверяет итоговую подпись
+    - раскрывает участников
+    """
+
+    def __init__(self, gm):
+        self.gm = gm
+        self.G = gm.G
+        self.n = gm.n_curve
+
+    def VerifyPartial(self, part, message):
+        """
+        Проверка частичной подписи:
+
+        σG + μSiJi == θ * xθ
+        """
+        theta = part["theta"]
+        sigma = part["sigma"]
+        BIi2 = part["BIi2"]
+        si = part["si"]
+
+        mu = self.gm.hash(message)
+        Ji = (BIi2 * self.gm.M) % self.n
+
+        left = sigma * self.G + mu * (si * self.G) * Ji
+        right = theta.x * theta
+
+        return left == right
+
+    def Aggregate(self, parts):
+        """
+        Агрегация подписей:
+
+        Θ = Σ θi * xθi
+        Σ = Σ σi
+        Ω = Σ Ji * Si
+        """
+        if len(parts) < self.gm.t:
+            raise Exception("Not enough participants for threshold signature")
+
+        Theta = None
+        Sigma = 0
+        Omega = None
+
+        for part in parts:
+            theta = part["theta"]
+            sigma = part["sigma"]
+            BIi2 = part["BIi2"]
+            si = part["si"]
+
+            Ji = (BIi2 * self.gm.M) % self.n
+
+            # Θ
+            term_theta = theta.x * theta
+            Theta = term_theta if Theta is None else Theta + term_theta
+
+            # Σ
+            Sigma = (Sigma + sigma) % self.n
+
+            # Ω
+            Si = si * self.G
+            term_omega = Ji * Si
+            Omega = term_omega if Omega is None else Omega + term_omega
+
+        return Theta, Sigma, Omega, parts
+
+    def VerifyFinal(self, Theta, Sigma, Omega, message):
+        """
+        Проверка итоговой подписи:
+
+        ΣG + μΩ == Θ
+        """
+        mu = self.gm.hash(message)
+        return (Sigma * self.G + mu * Omega) == Theta
+
+    def OpenSignature(self, parts):
+        """
+        Раскрытие подписи:
+        возвращает реальные ID участников
+        """
+        ids = []
+        for part in parts:
+            BIi2 = part["BIi2"]
+            ids.append(self.gm.GetID(BIi2))
+        return ids
+
+
+# =======================
+# TEST (полный сценарий)
 # =======================
 def test():
-    print("=== INIT GM ===")
-    gm = GroupManager(n=5, t=3)
+    print("=== INIT SYSTEM ===")
+
+    gm = GroupManager(3, 2)
     gm.GenerateElepticCurve()
-    gm.GenerateGroupManagerKeys()
-    gm.GenerateGroupKeys()
+    gm.GenerateKeys()
 
-    print("M:", gm.M)
+    # создаём устройства
+    iot1 = Iot(gm, "device_1")
+    iot2 = Iot(gm, "device_2")
+    iot3 = Iot(gm, "device_3")
 
-    print("\n=== REGISTRATION ===")
-    IoT1 = Iot(gm)
-    IoT1.Register("device_1")
+    tsg = TSG(gm)
 
-    print("\n=== SIGNATURE ===")
-    message = b"Hello IoT Threshold Signature"
+    # сообщение
+    message = b"Temperature = 42C"
 
-    IoT1.GeneratePartSignature(message)
-    sig = IoT1.SendPartSignature()
+    print("\n=== SEND SIGNED MESSAGE ===")
+    print("Sender: device_1")
+    print("Message:", message)
 
-    print("Theta:", sig["theta"])
-    print("Sigma:", sig["sigma"])
-    print("BIi2:", sig["BIi2"])
+    # partial подписи (t = 2)
+    p1 = iot1.GeneratePartSignature(message)
+    p2 = iot2.GeneratePartSignature(message)
 
-    print("\n=== TRACE ===")
-    print("Recovered ID:", gm.GetIDbyBI2(sig["BIi2"]))
+    print("\n=== PARTIAL SIGNATURES ===")
+    print("Partial1:", tsg.VerifyPartial(p1, message))
+    print("Partial2:", tsg.VerifyPartial(p2, message))
+
+    print("\n=== AGGREGATION ===")
+    Theta, Sigma, Omega, parts = tsg.Aggregate([p1, p2])
+
+    print("Final valid:", tsg.VerifyFinal(Theta, Sigma, Omega, message))
+
+    print("\n=== OPEN SIGNATURE ===")
+    print("Signers:", tsg.OpenSignature(parts))
+
+    print("\n=== REVOCATION ===")
+
+    # отзыв второго
+    gm.Revoke(p2["BIi2"])
+
+    print("Trying signature after revoke...")
+
+    try:
+        p3 = iot3.GeneratePartSignature(message)
+
+        # используем отозванного + нового
+        Theta, Sigma, Omega, parts = tsg.Aggregate([p2, p3])
+
+        print("Valid after revoke:", tsg.VerifyFinal(Theta, Sigma, Omega, message))
+    except Exception as e:
+        print("Error:", e)
+
+    print("\n=== THRESHOLD TEST ===")
+
+    try:
+        # меньше порога
+        tsg.Aggregate([p1])
+    except Exception as e:
+        print("Threshold check works:", e)
 
 
 if __name__ == "__main__":
