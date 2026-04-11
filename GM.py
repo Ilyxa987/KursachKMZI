@@ -50,7 +50,7 @@ class GroupManager:
     def GenerateGMKeys(self):
         self.Ms = secrets.randbelow(self.I)
         self.Mx = self.Ms * self.G
-    
+
     def GenerateGroupKeys(self):
         self.m = []
         while len(self.m) != self.n:
