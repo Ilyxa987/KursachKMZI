@@ -53,16 +53,13 @@ class GroupManager:
 
     def GenerateGroupKeys(self):
         self.m = []
-        while len(self.m) != self.n:
-            mi = secrets.randbits(128)
-            if len(self.m) == 0:
+        while len(self.m) < self.n:
+            mi = secrets.randbits(64)
+            if mi > 0 and all(GCD(mi, x) == 1 for x in self.m):
                 self.m.append(mi)
-            for i in range(len(self.m)):
-                if GCD(mi, self.m[i]) != 1:
-                    continue
-                elif i == len(self.m) - 1:
-                    self.m.append(mi)
-        self.M = math.prod(self.m[:self.t])
+        self.M = 1
+        for i in range(self.t):
+            self.M *= self.m[i]
         self.gs = secrets.randbelow(self.I)
         self.gx = self.gs * self.G
 
