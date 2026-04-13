@@ -7,11 +7,14 @@ import secrets
 import hashlib
 import math
 
+
 def int_from_bytes(b):
     return int.from_bytes(b, 'big')
 
+
 def hash_message(m, curve_n):
     return int_from_bytes(hashlib.sha256(m).digest()) % curve_n
+
 
 # Класс GM
 class GroupManager:
