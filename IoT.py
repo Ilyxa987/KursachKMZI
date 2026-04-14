@@ -1,6 +1,7 @@
 import secrets
 from GM import hash_message
 
+
 class IoT:
     def __init__(self, node_id):
         self.node_id = node_id
@@ -33,13 +34,25 @@ class IoT:
         return U, self.BI2
 
     def generateKey(self, y):
-        # ✅ s = x + y  (y уже содержит множитель BI2^{-1})
         self.s = (self.x + y) % self.I
 
     def generatePartSignature(self, m, PK, N):
         mu = hash_message(m, self.I)
+
         gamma = secrets.randbelow(self.I)
         theta = gamma * self.G
-        sigma = (gamma - mu * self.s) % self.I
+        r_i = theta.x % self.I
+
+        # J_i = BI2 (без M)
+        J_i = self.BI2 % self.I
+
+        sigma_i = (gamma * r_i - mu * self.s * J_i) % self.I
         cipherBI2 = pow(self.BI2, PK, N)
-        return {"theta": theta, "sigma": sigma, "cipher": cipherBI2, "X": self.X}
+
+        return {
+            "theta": theta,
+            "sigma": sigma_i,
+            "cipher": cipherBI2,
+            "X": self.X,
+            "J": J_i
+        }

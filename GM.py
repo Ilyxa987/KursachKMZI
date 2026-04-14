@@ -3,12 +3,16 @@ from Crypto.Util.number import GCD
 import secrets
 import hashlib
 
+
 def int_from_bytes(b):
     return int.from_bytes(b, 'big')
 
+
 def hash_message(m, curve_n):
-    if isinstance(m, str): m = m.encode()
+    if isinstance(m, str):
+        m = m.encode()
     return int_from_bytes(hashlib.sha256(m).digest()) % curve_n
+
 
 class GroupManager:
     def __init__(self, n: int, t: int):
@@ -29,13 +33,16 @@ class GroupManager:
     def GenerateGroupKeys(self):
         self.gs = secrets.randbelow(self.I)
         self.gx = self.gs * self.G
+
         self.m = []
         while len(self.m) < self.n:
-            mi = secrets.randbits(32)
+            mi = secrets.randbits(64)
             if mi > 0 and all(GCD(mi, x) == 1 for x in self.m):
                 self.m.append(mi)
+
         self.M = 1
-        for i in range(self.t): self.M *= self.m[i]
+        for i in range(self.t):
+            self.M *= self.m[i]
 
     def GetOpens(self):
         return self.G, self.gx, self.M, self.Mx, self.I
@@ -60,8 +67,7 @@ class GroupManager:
         self.iots[ID] = {"X": X, "BI1": BI1, "BI2": BI2}
 
     def generateSecondPartKey(self, ID):
-        # ✅ ПРАВИЛЬНАЯ ФОРМУЛА: y = gs * BI2^{-1} mod I
         BI2 = self.iots[ID]["BI2"]
         inv_BI2 = pow(BI2, -1, self.I)
         y = (self.gs * inv_BI2) % self.I
-        return self.gs
+        return y

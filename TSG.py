@@ -13,15 +13,19 @@ class TSG:
         self.gx = gx
 
     def Aggregate(self, partial_sigs, message):
-        # Агрегация суммирует параметры всех участников
-        sum_theta = partial_sigs[0]["theta"]
-        for ps in partial_sigs[1:]:
-            sum_theta += ps["theta"]
+        # Theta = Σ (theta_i * r_i)
+        Theta = None
+        for ps in partial_sigs:
+            r = ps["theta"].x % self.I
+            term = ps["theta"] * r
+            Theta = term if Theta is None else Theta + term
 
-        sum_sigma = sum(ps["sigma"] for ps in partial_sigs) % self.I
+        Sigma = sum(ps["sigma"] for ps in partial_sigs) % self.I
 
-        sum_X = partial_sigs[0]["X"]
-        for ps in partial_sigs[1:]:
-            sum_X += ps["X"]
+        # Omega = Σ (X_i * J_i)
+        Omega = None
+        for ps in partial_sigs:
+            term = ps["X"] * ps["J"]
+            Omega = term if Omega is None else Omega + term
 
-        return sum_theta, sum_sigma, sum_X, len(partial_sigs)
+        return Theta, Sigma, Omega, len(partial_sigs)

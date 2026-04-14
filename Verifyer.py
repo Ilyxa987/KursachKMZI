@@ -9,11 +9,5 @@ class Verifier:
 
     def VerifySign(self, theta, sigma, Omega, m, count):
         mu = hash_message(m, self.I)
-        # Формула верификации для суммы подписей:
-        # sigma*G + mu*(count*gx + sum_X) == sum_theta
         left = (sigma * self.G) + (mu * (count * self.gx + Omega))
-
-        print(f"LEFT:  {left}")
-        print(f"RIGHT: {theta}")
-
         return left == theta

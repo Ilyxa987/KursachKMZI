@@ -1,7 +1,7 @@
 from GM import GroupManager
 from IoT import IoT
 from TSG import TSG
-from Verifyer import *
+from Verifyer import Verifier
 
 # 1. Инициализация GM
 gm = GroupManager(n=5, t=3)
@@ -30,10 +30,11 @@ for node_id in ids:
         U, BI2 = device.secondAnonimization()
         gm.addMember(node_id, device.X, BI1, BI2)
 
-        # ✅ Генерация ключа с правильным y
+        # Генерация ключа с правильным y
         y = gm.generateSecondPartKey(node_id)
         device.generateKey(y)
         device_list.append(device)
+        print(f"Устройство {node_id} зарегистрировано.")
 
 # 4. Подпись сообщения всеми устройствами
 msg = "Test Message"
