@@ -1,12 +1,8 @@
 import tinyec
 import hashlib
 import secrets
+from GM import int_from_bytes, hash_message
 
-def int_from_bytes(b):
-    return int.from_bytes(b, 'big')
-
-def hash_message(m, curve_n):
-    return int_from_bytes(hashlib.sha256(m).digest()) % curve_n
 
 class IoT:
 
@@ -65,3 +61,16 @@ class IoT:
     def generateKey(self, y):
         self.s = self.x + y
         self.S = self.s * self.G
+
+    def generatePartSignature(self, m, M):
+        mu = hash_message(m, self.I)
+        J_i = (self.BI2 * M) % self.I
+        gamma_i = secrets.randbelow(self.I)
+        theta_i = gamma_i * self.G
+        sigma_i = (gamma_i * theta_i.x - mu * self.s * J_i) % self.I
+        # ToDo: encrypted_BI2
+        encrypted_BI2 = None
+        return theta_i, sigma_i, encrypted_BI2
+
+
+
