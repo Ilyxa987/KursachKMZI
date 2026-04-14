@@ -1,113 +1,49 @@
 from GM import GroupManager
 from IoT import IoT
 from TSG import TSG
-from Verifyer import Verifier
+from Verifyer import *
 
-gm = None
-IoTs = []
-tsg = None
-ver = None
+# 1. Инициализация GM
+gm = GroupManager(n=5, t=3)
+gm.GenerateElepticCurve()
+gm.GenerateGMKeys()
+gm.GenerateGroupKeys()
+G, gx, M, Mx, I = gm.GetOpens()
 
-def InitGM(n, t):
-    gm = GroupManager(n, t)
-    gm.GenerateElepticCurve()
-    gm.GenerateGMKeys()
-    gm.GenerateGroupKeys()
-    return gm
+# 2. Инициализация TSG
+tsg = TSG()
+tsg.set_params(G, I, gx)
+PK, N = tsg.PK
 
-def Register(gm: GroupManager, ID: int):
-    if gm.CheckID(ID):
-        print("Новый ID. Начинаем регистрацию")
-    else:
-        print("Устройство уже зарегистрировано")
-        return
-    a, b, G, gx, M, Mx, I = gm.GetOpens()
-    IoTs[ID].setOpens(a, b, G, gx, M, Mx, I)
-    R, BI1 = gm.FirstAnonimization(ID)
-    if IoTs[ID].VerifyBI1(R, BI1):
-        print("Первая аутентификация успешна")
-    else:
-        print("Первая аутентификация неуспешна")
-        return
-    IoTs[ID].GenerateFirstPartKey()
-    U, BI2 = IoTs[ID].secondAnonimization()
-    X, _, _ = IoTs[ID].getParams()
-    if gm.VerifyBI2(U, BI2, X, BI1):
-        print("Вторая аутентификация успешна")
-    else:
-        print("Вторая аутентификация неуспешна")
-        return
-    gm.addMember(ID, X, BI1, BI2)
-    y = gm.generateSecondPartKey(ID)
-    IoTs[ID].generateKey(y)
-    print("Ключ IoT сгенерирован")
+# 3. Регистрация двух IoT устройств
+ids = [101, 102]
+device_list = []
+for node_id in ids:
+    device = IoT(node_id)
+    device.setOpens(G, gx, M, Mx, I)
 
-def GeneratePartSignature():
-    pass
-    
+    # Этап 1
+    R, BI1 = gm.FirstAnonimization(node_id)
+    if device.VerifyBI1(R, BI1):
+        # Этап 2
+        device.GenerateFirstPartKey()
+        U, BI2 = device.secondAnonimization()
+        gm.addMember(node_id, device.X, BI1, BI2)
 
-print("Стенд групповой подписи IoT-устройств")
+        # ✅ Генерация ключа с правильным y
+        y = gm.generateSecondPartKey(node_id)
+        device.generateKey(y)
+        device_list.append(device)
 
-while True:
-    print("1 - Инициализировать систему")
-    print("2 - Зарегистрировать IoT-устройство")
-    print("3 - Сгенерировать часть подписи")
-    print("d - Запустить все")
-    mode = input()
-    if mode == '1':
-        print("Введите n и t")
-        n, t = map(int, input().split())
-        gm = InitGM(n, t)
-        for i in range(n):
-            IoTs.append(IoT(i))
+# 4. Подпись сообщения всеми устройствами
+msg = "Test Message"
+p_sigs = [d.generatePartSignature(msg, PK, N) for d in device_list]
 
-    elif mode == '2':
-        print("Введите ID устройства")
-        ID = int(input())
-        Register(gm, ID)
+# 5. Агрегация и проверка
+Theta, Sigma, Omega, count = tsg.Aggregate(p_sigs, msg)
+v = Verifier(G, I, gx)
 
-    elif mode == '3':
-        tsg = TSG()
-        a, b, G, gx, M, Mx, I = gm.GetOpens()
-        tsg.set_curve_params(G, I)
-        tsg.set_group_params(gx, M)
-        print("TSG создан")
-        PK, Ntsg = tsg.getPK()
-        m = b"Hello"
-        print(f"Сообщение: {m}")
-        parts = []
-        for i in range(3):
-            parts.append(IoTs[i].generatePartSignature(m, M, PK, Ntsg))
-        
-    
-    elif mode == 'd':
-        print("Введите n и t")
-        n, t = map(int, input().split())
-        gm = InitGM(n, t)
-        for i in range(n):
-            IoTs.append(IoT(i))
-        for i in range(t):
-            Register(gm, i)
-        tsg = TSG()
-        a, b, G, gx, M, Mx, I = gm.GetOpens()
-        tsg.set_curve_params(G, I)
-        tsg.set_group_params(gx, M)
-        print("TSG создан")
-        PK, Ntsg = tsg.getPK()
-        m = b"Hello"
-        print(f"Сообщение: {m}")
-        parts = []
-        for i in range(3):
-            theta, sigma, encrypted_BI2 = IoTs[i].generatePartSignature(m, M, PK, Ntsg)
-            X = IoTs[i].getX()
-            S = IoTs[i].getS()
-            parts.append({'theta': theta, 'sigma': sigma, 'CipherBI2': encrypted_BI2, 'X': X, 'S': S})
-        Theta, Sigma, Omega = tsg.PublicSignature(parts, m)
-        print("Подпись создана")
-        ver = Verifier()
-        ver.set_public_params(a, b, G, gx, I)
-        print(ver.VerifySign(Theta, Sigma, Omega, m))
-        
-
-    else:
-        break
+if v.VerifySign(Theta, Sigma, Omega, msg, count):
+    print("\n[УСПЕХ] Групповая подпись подтверждена!")
+else:
+    print("\n[ОШИБКА] Подпись не валидна.")

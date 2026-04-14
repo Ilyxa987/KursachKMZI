@@ -1,27 +1,19 @@
-import tinyec
 from GM import hash_message
 
+
 class Verifier:
-    def __init__(self):
-        self.a = None
-        self.b = None
-        self.G = None
-        self.gx = None
-        self.I = None
-
-    def set_public_params(self, a: int, b: int, G: tinyec.ec.Point,
-                          gx: tinyec.ec.Point, I: int):
-        self.a = a
-        self.b = b
+    def __init__(self, G, I, gx):
         self.G = G
-        self.gx = gx
         self.I = I
+        self.gx = gx
 
-    def VerifySign(self, theta, sigma, Omega, m):
+    def VerifySign(self, theta, sigma, Omega, m, count):
         mu = hash_message(m, self.I)
-        left = sigma * self.G + mu * (self.gx + Omega)
-        return left == theta
-        pass
+        # Формула верификации для суммы подписей:
+        # sigma*G + mu*(count*gx + sum_X) == sum_theta
+        left = (sigma * self.G) + (mu * (count * self.gx + Omega))
 
-    def OpenSignature(self):
-        pass
+        print(f"LEFT:  {left}")
+        print(f"RIGHT: {theta}")
+
+        return left == theta
