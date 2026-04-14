@@ -62,14 +62,13 @@ class IoT:
         self.s = self.x + y
         self.S = self.s * self.G
 
-    def generatePartSignature(self, m, M):
+    def generatePartSignature(self, m, M, PK, N):
         mu = hash_message(m, self.I)
         J_i = (self.BI2 * M) % self.I
         gamma_i = secrets.randbelow(self.I)
         theta_i = gamma_i * self.G
         sigma_i = (gamma_i * theta_i.x - mu * self.s * J_i) % self.I
-        # ToDo: encrypted_BI2
-        encrypted_BI2 = None
+        encrypted_BI2 = pow(self.BI2, PK, N)
         return theta_i, sigma_i, encrypted_BI2
 
 
