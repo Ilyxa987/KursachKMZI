@@ -1,3 +1,4 @@
+import tinyec
 from Crypto.PublicKey import RSA
 from GM import hash_message
 
@@ -47,7 +48,68 @@ class TSG:
             print("Ошибка: нет частичных подписей для агрегации")
             return None
         verified_signatures = []
-        # ToDo
+        mu = hash_message(message, self.PKtsg)
+
+        for ps in partial_signatures:
+            theta_i = ps["theta"]
+            sigma_i = ps["sigma"]
+            CipherBI2 = ps["CipherBI2"]
+            X_i = ps["X"]
+            S_i = ps["S"]
+
+            if self.VerifyPartSignature(theta_i, sigma_i, CipherBI2, X_i, S_i, message):
+                BIi2 = self.DecryptAnonIdentificator(CipherBI2)
+                J_i = (BIi2 * self.M) % self.I
+
+                verified_signatures.append({
+                    "theta": theta_i,
+                    "sigma": sigma_i,
+                    "J": J_i,
+                    "X": X_i,
+                    "BIi2": BIi2
+                })
+            else:
+                print("Частичная подпись отклонена")
+
+        if len(verified_signatures) == 0:
+            print("Нет корректных подписей")
+            return None
+
+        Theta = None
+        for vs in verified_signatures:
+            term = (vs["theta"] * vs["theta"].x) % self.I
+            if Theta is None:
+                Theta = term
+            else:
+                Theta += term
+
+        Sigma = sum(vs["sigma"] for vs in verified_signatures)
+
+        Omega = None
+        for vs in verified_signatures:
+            term = vs["X"] * vs["J"]
+            if Omega is None:
+                Omega = term
+            else:
+                Omega += term
+
+        self.AddToSL(verified_signatures, Theta, Sigma)
+
+        return (Theta, Sigma, Omega)
+
+    def AddToSL(self, verified_signatures: list, Theta, Sigma):
+        if not hasattr(self, "SL"):
+            self.SL = []
+
+        for vs in verified_signatures:
+            entry = {
+                "theta": vs["theta"],
+                "sigma": vs["sigma"],
+                "BIi2": vs["BIi2"],
+                "Theta": Theta,
+                "Sigma": Sigma
+            }
+            self.SL.append(entry)
 
 
 
