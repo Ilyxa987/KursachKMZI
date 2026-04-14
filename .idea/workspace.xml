@@ -4,14 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="32233ad9-909a-458b-bde8-e9c3934efaa9" name="Changes" comment="k">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/GM.py" beforeDir="false" afterPath="$PROJECT_DIR$/GM.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/IoT.py" beforeDir="false" afterPath="$PROJECT_DIR$/IoT.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/TSG.py" beforeDir="false" afterPath="$PROJECT_DIR$/TSG.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Verifyer.py" beforeDir="false" afterPath="$PROJECT_DIR$/Verifyer.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
-    </list>
+    <list default="true" id="32233ad9-909a-458b-bde8-e9c3934efaa9" name="Changes" comment="k" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -171,7 +164,15 @@
       <option name="project" value="LOCAL" />
       <updated>1776191924930</updated>
     </task>
-    <option name="localTasksCounter" value="10" />
+    <task id="LOCAL-00010" summary="k">
+      <option name="closed" value="true" />
+      <created>1776192883414</created>
+      <option name="number" value="00010" />
+      <option name="presentableId" value="LOCAL-00010" />
+      <option name="project" value="LOCAL" />
+      <updated>1776192883414</updated>
+    </task>
+    <option name="localTasksCounter" value="11" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
