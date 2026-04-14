@@ -1,5 +1,5 @@
 
-class Verifyer:
+class Verifier:
     def __init__(self):
         self.a = None
         self.b = None
@@ -22,5 +22,4 @@ class Verifyer:
         pass
 
     def OpenSignature(self):
-
         pass
