@@ -1,6 +1,7 @@
 import tinyec
 from Crypto.PublicKey import RSA
 from GM import hash_message
+import tinyec
 
 
 class TSG:
@@ -19,7 +20,7 @@ class TSG:
         self.SKtsg = private_key.d
 
     def getPK(self):
-        return self.PKtsg
+        return self.PKtsg, self.Ntsg
 
     def set_curve_params(self, G: tinyec.ec.Point, I: int):
         self.G = G

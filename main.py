@@ -1,8 +1,10 @@
 from GM import GroupManager
 from IoT import IoT
+from TSG import TSG
 
 gm = None
 IoTs = []
+tsg = None
 
 def InitGM(n, t):
     gm = GroupManager(n, t)
@@ -37,6 +39,9 @@ def Register(gm: GroupManager, ID: int):
     y = gm.generateSecondPartKey(ID)
     IoTs[ID].generateKey(y)
     print("Ключ IoT сгенерирован")
+
+def GeneratePartSignature():
+    pass
     
 
 print("Стенд групповой подписи IoT-устройств")
@@ -44,6 +49,8 @@ print("Стенд групповой подписи IoT-устройств")
 while True:
     print("1 - Инициализировать систему")
     print("2 - Зарегистрировать IoT-устройство")
+    print("3 - Сгенерировать часть подписи")
+    print("d - Запустить все")
     mode = input()
     if mode == '1':
         print("Введите n и t")
@@ -56,6 +63,42 @@ while True:
         print("Введите ID устройства")
         ID = int(input())
         Register(gm, ID)
+
+    elif mode == '3':
+        tsg = TSG()
+        a, b, G, gx, M, Mx, I = gm.GetOpens()
+        tsg.set_curve_params(G, I)
+        tsg.set_group_params(gx, M)
+        print("TSG создан")
+        PK, Ntsg = tsg.getPK()
+        m = b"Hello"
+        print(f"Сообщение: {m}")
+        parts = []
+        for i in range(3):
+            parts.append(IoTs[i].generatePartSignature(m, M, PK, Ntsg))
+        
+    
+    elif mode == 'd':
+        print("Введите n и t")
+        n, t = map(int, input().split())
+        gm = InitGM(n, t)
+        for i in range(n):
+            IoTs.append(IoT(i))
+        for i in range(t):
+            Register(gm, i)
+        tsg = TSG()
+        a, b, G, gx, M, Mx, I = gm.GetOpens()
+        tsg.set_curve_params(G, I)
+        tsg.set_group_params(gx, M)
+        print("TSG создан")
+        PK, Ntsg = tsg.getPK()
+        m = b"Hello"
+        print(f"Сообщение: {m}")
+        parts = []
+        for i in range(3):
+            parts.append(IoTs[i].generatePartSignature(m, M, PK, Ntsg))
+        print(parts)
+        
 
     else:
         break
