@@ -1,3 +1,5 @@
+import tinyec
+from GM import hash_message
 
 class Verifier:
     def __init__(self):
@@ -15,7 +17,7 @@ class Verifier:
         self.gx = gx
         self.I = I
 
-    def VerifySign(self, Omega, sigma, theta, m):
+    def VerifySign(self, theta, sigma, Omega, m):
         mu = hash_message(m, self.I)
         left = sigma * self.G + mu * (self.gx + Omega)
         return left == theta

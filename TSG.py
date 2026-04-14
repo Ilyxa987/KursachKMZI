@@ -38,7 +38,7 @@ class TSG:
                            CipherBI2: int, X_i: tinyec.ec.Point,
                            S_i: tinyec.ec.Point, message: bytes):
         BIi2 = self.DecryptAnonIdentificator(CipherBI2)
-        mu = hash_message(message, self.PKtsg)
+        mu = hash_message(message, self.I)
         J_i = (BIi2 * self.M) % self.I
         left = (sigma_i * self.G) + (mu * S_i * J_i)
         right = theta_i * theta_i.x
@@ -49,7 +49,7 @@ class TSG:
             print("Ошибка: нет частичных подписей для агрегации")
             return None
         verified_signatures = []
-        mu = hash_message(message, self.PKtsg)
+        
 
         for ps in partial_signatures:
             theta_i = ps["theta"]
@@ -78,7 +78,7 @@ class TSG:
 
         Theta = None
         for vs in verified_signatures:
-            term = (vs["theta"] * vs["theta"].x) % self.I
+            term = (vs["theta"] * vs["theta"].x)
             if Theta is None:
                 Theta = term
             else:
@@ -96,7 +96,7 @@ class TSG:
 
         self.AddToSL(verified_signatures, Theta, Sigma)
 
-        return (Theta, Sigma, Omega)
+        return Theta, Sigma, Omega
 
     def AddToSL(self, verified_signatures: list, Theta, Sigma):
         if not hasattr(self, "SL"):

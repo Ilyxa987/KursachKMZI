@@ -62,6 +62,12 @@ class IoT:
         self.s = self.x + y
         self.S = self.s * self.G
 
+    def getX(self):
+        return self.X
+    
+    def getS(self):
+        return self.S
+
     def generatePartSignature(self, m, M, PK, N):
         mu = hash_message(m, self.I)
         J_i = (self.BI2 * M) % self.I

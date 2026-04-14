@@ -1,10 +1,12 @@
 from GM import GroupManager
 from IoT import IoT
 from TSG import TSG
+from Verifyer import Verifier
 
 gm = None
 IoTs = []
 tsg = None
+ver = None
 
 def InitGM(n, t):
     gm = GroupManager(n, t)
@@ -96,8 +98,15 @@ while True:
         print(f"Сообщение: {m}")
         parts = []
         for i in range(3):
-            parts.append(IoTs[i].generatePartSignature(m, M, PK, Ntsg))
-        print(parts)
+            theta, sigma, encrypted_BI2 = IoTs[i].generatePartSignature(m, M, PK, Ntsg)
+            X = IoTs[i].getX()
+            S = IoTs[i].getS()
+            parts.append({'theta': theta, 'sigma': sigma, 'CipherBI2': encrypted_BI2, 'X': X, 'S': S})
+        Theta, Sigma, Omega = tsg.PublicSignature(parts, m)
+        print("Подпись создана")
+        ver = Verifier()
+        ver.set_public_params(a, b, G, gx, I)
+        print(ver.VerifySign(Theta, Sigma, Omega, m))
         
 
     else:
