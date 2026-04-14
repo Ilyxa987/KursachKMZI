@@ -60,7 +60,7 @@ class TSG:
 
             if self.VerifyPartSignature(theta_i, sigma_i, CipherBI2, X_i, S_i, message):
                 BIi2 = self.DecryptAnonIdentificator(CipherBI2)
-                J_i = (BIi2 * self.M) % self.I
+                J_i = (BIi2 * self.M)
 
                 verified_signatures.append({
                     "theta": theta_i,

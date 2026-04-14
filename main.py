@@ -8,6 +8,19 @@ IoTs = []
 tsg = None
 ver = None
 
+def crt(a, n):
+    N = 1
+    for ni in n:
+        N *= ni
+
+    result = 0
+    for ai, ni in zip(a, n):
+        Ni = N // ni
+        inv = pow(Ni, -1, ni)
+        result += ai * Ni * inv
+
+    return result % N
+
 def InitGM(n, t):
     gm = GroupManager(n, t)
     gm.GenerateElepticCurve()
@@ -41,6 +54,10 @@ def Register(gm: GroupManager, ID: int):
     y = gm.generateSecondPartKey(ID)
     IoTs[ID].generateKey(y)
     print("Ключ IoT сгенерирован")
+
+def CheckCRT(gs, b, ms):
+    res = crt(b, ms)
+    print(gs == res)
 
 def GeneratePartSignature():
     pass
@@ -88,6 +105,8 @@ while True:
             IoTs.append(IoT(i))
         for i in range(t):
             Register(gm, i)
+        ch1, ch2 = gm.getCRTparams()
+        CheckCRT(gm.getgs(), ch1, ch2)
         tsg = TSG()
         a, b, G, gx, M, Mx, I = gm.GetOpens()
         tsg.set_curve_params(G, I)
@@ -97,7 +116,7 @@ while True:
         m = b"Hello"
         print(f"Сообщение: {m}")
         parts = []
-        for i in range(3):
+        for i in range(t):
             theta, sigma, encrypted_BI2 = IoTs[i].generatePartSignature(m, M, PK, Ntsg)
             X = IoTs[i].getX()
             S = IoTs[i].getS()

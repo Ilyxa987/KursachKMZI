@@ -21,7 +21,6 @@ class Verifier:
         mu = hash_message(m, self.I)
         left = sigma * self.G + mu * (self.gx + Omega)
         return left == theta
-        pass
 
     def OpenSignature(self):
         pass

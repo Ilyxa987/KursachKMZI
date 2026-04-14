@@ -59,7 +59,7 @@ class IoT:
         return self.X, self.BI1, self.BI2
     
     def generateKey(self, y):
-        self.s = self.x + y
+        self.s = (self.x + y) % self.I 
         self.S = self.s * self.G
 
     def getX(self):
@@ -70,7 +70,7 @@ class IoT:
 
     def generatePartSignature(self, m, M, PK, N):
         mu = hash_message(m, self.I)
-        J_i = (self.BI2 * M) % self.I
+        J_i = (self.BI2 * M) # Возможна ошибка
         gamma_i = secrets.randbelow(self.I)
         theta_i = gamma_i * self.G
         sigma_i = (gamma_i * theta_i.x - mu * self.s * J_i) % self.I

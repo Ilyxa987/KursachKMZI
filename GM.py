@@ -57,7 +57,7 @@ class GroupManager:
     def GenerateGroupKeys(self):
         self.m = []
         while len(self.m) < self.n:
-            mi = secrets.randbits(64)
+            mi = secrets.randbits(128)
             if mi > 0 and all(GCD(mi, x) == 1 for x in self.m):
                 self.m.append(mi)
         self.M = 1
@@ -100,7 +100,19 @@ class GroupManager:
         lam = pow(self.M // mi, -1, mi)
         b = self.gs % mi
         BI2 = self.iots[ID][2]
-        y = (lam * b) * pow(mi * BI2, -1, self.I)
+        y = ((lam * b) * pow(mi, -1, self.I) * pow(BI2, -1, self.I)) % self.I
+        #y = (lam * b) // (mi * BI2)
         return y
+    
+    def getCRTparams(self):
+        b = []
+        ms = []
+        for i in range(self.t):
+            b.append(self.gs % self.m[i])
+            ms.append(self.m[i])
+        return b, ms
+
+    def getgs(self):
+        return self.gs        
 
     
