@@ -68,6 +68,9 @@ class GroupManager:
 
     def GetOpens(self):
         return self.a, self.b, self.G, self.gx, self.M, self.Mx, self.I
+    
+    def getmi(self, id):
+        return self.m[id]
 
     def CheckID(self, ID: int):
         if ID not in self.iots.keys():
@@ -97,10 +100,12 @@ class GroupManager:
     
     def generateSecondPartKey(self, ID):
         mi = self.m[ID]
-        lam = pow(self.M // mi, -1, mi)
+        Mi = self.M // mi
+        lam = pow(Mi, -1, mi)
         b = self.gs % mi
         BI2 = self.iots[ID][2]
-        y = ((lam * b) * pow(mi, -1, self.I) * pow(BI2, -1, self.I)) % self.I
+        y = ((lam * b) * Mi * pow(BI2, -1, self.I)) % self.I
+        y = ((lam * b) * Mi * pow(BI2, -1, mi))
         #y = (lam * b) // (mi * BI2)
         return y
     
@@ -113,6 +118,18 @@ class GroupManager:
         return b, ms
 
     def getgs(self):
-        return self.gs        
+        return self.gs   
+
+    def checkgs(self):
+        flam = 0
+        for i in range(self.t):
+            mi = self.m[i]
+            Mi = self.M // mi
+            lam = pow(Mi, -1, mi)
+            b = self.gs % mi
+            BI2 = self.iots[i][2]
+            flam = (flam + lam * b * Mi * pow(BI2, -1, mi) * BI2)
+        flam = (flam % self.M)
+        print(self.gs, flam)
 
     

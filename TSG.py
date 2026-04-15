@@ -39,7 +39,8 @@ class TSG:
                            S_i: tinyec.ec.Point, message: bytes):
         BIi2 = self.DecryptAnonIdentificator(CipherBI2)
         mu = hash_message(message, self.I)
-        J_i = (BIi2 * self.M) % self.I
+        J_i = (BIi2 * self.M)
+        J_i = (BIi2)
         left = (sigma_i * self.G) + (mu * S_i * J_i)
         right = theta_i * theta_i.x
         return left == right
@@ -61,6 +62,7 @@ class TSG:
             if self.VerifyPartSignature(theta_i, sigma_i, CipherBI2, X_i, S_i, message):
                 BIi2 = self.DecryptAnonIdentificator(CipherBI2)
                 J_i = (BIi2 * self.M)
+                J_i = (BIi2)
 
                 verified_signatures.append({
                     "theta": theta_i,

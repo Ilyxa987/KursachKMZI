@@ -19,6 +19,7 @@ class IoT:
     BI2: int # Второй анонимный идентификатор
     s: int # Закрытый ключ
     S: tinyec.ec.Point # Закрытый ключ
+    gamma: int
 
     def __init__(self, node_id):
         self.node_id = node_id
@@ -47,11 +48,17 @@ class IoT:
         self.x = secrets.randbelow(self.I)
         self.X = self.x * self.G
     
-    def secondAnonimization(self):
-        u = secrets.randbelow(self.I)
-        U = u * self.G
+    def secondAnonimization(self, mi):
         id = self.BI1.to_bytes(((len(bin(self.BI1)) - 2) // 8) + 1)
-        BI2 = ((U.x + self.x) * hash_message(id, self.I) + u) % self.I
+        while True:
+            try:
+                u = secrets.randbelow(self.I)
+                U = u * self.G
+                BI2 = ((U.x + self.x) * hash_message(id, self.I) + u) % self.I
+                f = pow(BI2, -1, mi)
+                break
+            except:
+                continue
         self.BI2 = BI2
         return U, BI2
     
@@ -59,7 +66,7 @@ class IoT:
         return self.X, self.BI1, self.BI2
     
     def generateKey(self, y):
-        self.s = (self.x + y) % self.I 
+        self.s = (self.x + y)
         self.S = self.s * self.G
 
     def getX(self):
@@ -71,11 +78,30 @@ class IoT:
     def generatePartSignature(self, m, M, PK, N):
         mu = hash_message(m, self.I)
         J_i = (self.BI2 * M) # Возможна ошибка
+        J_i = (self.BI2)
         gamma_i = secrets.randbelow(self.I)
+        self.gamma = gamma_i
         theta_i = gamma_i * self.G
         sigma_i = (gamma_i * theta_i.x - mu * self.s * J_i) % self.I
+        sigma_i = (gamma_i * theta_i.x - mu * self.s * J_i)
         encrypted_BI2 = pow(self.BI2, PK, N)
         return theta_i, sigma_i, encrypted_BI2
+    
+    def checkKey(self):
+        J_i = self.BI2
+        return ((self.s - self.x) * J_i) % self.M
+    
+    def checkSign(self):
+        J_i = self.BI2
+        selfsign = (self.s * J_i) % self.M
+        gamma = self.gamma % self.M
+        theta = gamma * self.G
+        x = theta.x % self.M
+        selfsign = (gamma * x - selfsign)
+        check = (self.x * J_i) % self.M
+        check = check * self.G 
+        theta = theta * x
+        return selfsign, check, theta
 
 
 

@@ -43,7 +43,7 @@ def Register(gm: GroupManager, ID: int):
         print("Первая аутентификация неуспешна")
         return
     IoTs[ID].GenerateFirstPartKey()
-    U, BI2 = IoTs[ID].secondAnonimization()
+    U, BI2 = IoTs[ID].secondAnonimization(gm.getmi(ID))
     X, _, _ = IoTs[ID].getParams()
     if gm.VerifyBI2(U, BI2, X, BI1):
         print("Вторая аутентификация успешна")
@@ -61,6 +61,12 @@ def CheckCRT(gs, b, ms):
 
 def GeneratePartSignature():
     pass
+
+def checkParts(parts: list, sigma: int):
+    s = 0
+    for i in range(len(parts)):
+        s = s + parts[i]['sigma']
+    return sigma == s
     
 
 print("Стенд групповой подписи IoT-устройств")
@@ -107,6 +113,7 @@ while True:
             Register(gm, i)
         ch1, ch2 = gm.getCRTparams()
         CheckCRT(gm.getgs(), ch1, ch2)
+        gm.checkgs()
         tsg = TSG()
         a, b, G, gx, M, Mx, I = gm.GetOpens()
         tsg.set_curve_params(G, I)
@@ -116,13 +123,30 @@ while True:
         m = b"Hello"
         print(f"Сообщение: {m}")
         parts = []
+        checks = None
+        Omega = None
+        Theta = None
         for i in range(t):
             theta, sigma, encrypted_BI2 = IoTs[i].generatePartSignature(m, M, PK, Ntsg)
             X = IoTs[i].getX()
             S = IoTs[i].getS()
+            #checks += IoTs[i].checkKey()
+            selfsign, check, Theta_i = IoTs[i].checkSign()
+            if i == 0:
+                checks = selfsign
+                Omega = check
+                Theta = Theta_i
+            else:
+                checks += selfsign
+                Omega += check
+                Theta += Theta_i
             parts.append({'theta': theta, 'sigma': sigma, 'CipherBI2': encrypted_BI2, 'X': X, 'S': S})
+        print((checks % I) * G + (gx + Omega), Theta)
         Theta, Sigma, Omega = tsg.PublicSignature(parts, m)
         print("Подпись создана")
+        print("Частичные проверки:")
+        if checkParts(parts, Sigma):
+            print("Сумма равна")
         ver = Verifier()
         ver.set_public_params(a, b, G, gx, I)
         print(ver.VerifySign(Theta, Sigma, Omega, m))
