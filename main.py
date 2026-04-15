@@ -67,6 +67,29 @@ def checkParts(parts: list, sigma: int):
     for i in range(len(parts)):
         s = s + parts[i]['sigma']
     return sigma == s
+
+def checkGS(t, M, gs):
+    checks = 0
+    for i in range(t):
+        checks += IoTs[i].checkKey()
+    if checks % M == gs:
+        print("Частичные ключи верные")
+
+def checkGS2(t, M, gs, G):
+    sigma = 0
+    omega = 0
+    theta = 0
+    for i in range(t):
+        s, o, th = IoTs[i].checkpartSign()
+        sigma += s
+        omega += o
+        if i == 0:
+            theta = th
+        else:
+            theta += th
+    theta = theta % M
+    sign = (sigma + 78 * (gs + omega)) % M
+    print(sign * G, theta * G)
     
 
 print("Стенд групповой подписи IoT-устройств")
@@ -105,7 +128,8 @@ while True:
     
     elif mode == 'd':
         print("Введите n и t")
-        n, t = map(int, input().split())
+        #n, t = map(int, input().split())
+        n, t = 5, 3
         gm = InitGM(n, t)
         for i in range(n):
             IoTs.append(IoT(i))
@@ -141,7 +165,10 @@ while True:
                 Omega += check
                 Theta += Theta_i
             parts.append({'theta': theta, 'sigma': sigma, 'CipherBI2': encrypted_BI2, 'X': X, 'S': S})
-        print((checks % I) * G + (gx + Omega), Theta)
+        print((checks) * G + (gx + Omega), Theta)
+        print("ПОДПИСЬ:", (checks % I) * G + (gx + Omega) == Theta)
+        checkGS(t, M, gm.getgs())
+        checkGS2(t, M, gm.getgs(), G)
         Theta, Sigma, Omega = tsg.PublicSignature(parts, m)
         print("Подпись создана")
         print("Частичные проверки:")

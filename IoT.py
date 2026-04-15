@@ -55,7 +55,7 @@ class IoT:
                 u = secrets.randbelow(self.I)
                 U = u * self.G
                 BI2 = ((U.x + self.x) * hash_message(id, self.I) + u) % self.I
-                f = pow(BI2, -1, mi)
+                f = pow(BI2, -1, self.M)
                 break
             except:
                 continue
@@ -91,13 +91,24 @@ class IoT:
         J_i = self.BI2
         return ((self.s - self.x) * J_i) % self.M
     
+    def checkpartSign(self):
+        J_i = self.BI2
+        gamma = self.gamma
+        theta = gamma * self.G
+        x = theta.x
+        sigma = (78 * self.s * J_i) % self.M
+        sigma = (gamma * x - sigma)
+        omega = (self.x * J_i) % self.M
+        theta = gamma * x
+        return sigma, omega, theta
+    
     def checkSign(self):
         J_i = self.BI2
         selfsign = (self.s * J_i) % self.M
-        gamma = self.gamma % self.M
+        gamma = self.gamma % self.I
         theta = gamma * self.G
-        x = theta.x % self.M
-        selfsign = (gamma * x - selfsign)
+        x = theta.x % self.I
+        selfsign = (gamma * x - selfsign) % self.I
         check = (self.x * J_i) % self.M
         check = check * self.G 
         theta = theta * x

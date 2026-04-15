@@ -63,7 +63,7 @@ class GroupManager:
         self.M = 1
         for i in range(self.t):
             self.M *= self.m[i]
-        self.gs = secrets.randbelow(self.I)
+        self.gs = secrets.randbelow(self.I) % self.M
         self.gx = self.gs * self.G
 
     def GetOpens(self):
@@ -105,7 +105,7 @@ class GroupManager:
         b = self.gs % mi
         BI2 = self.iots[ID][2]
         y = ((lam * b) * Mi * pow(BI2, -1, self.I)) % self.I
-        y = ((lam * b) * Mi * pow(BI2, -1, mi))
+        y = ((lam * b) * Mi * pow(BI2, -1, self.M))
         #y = (lam * b) // (mi * BI2)
         return y
     
