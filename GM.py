@@ -7,12 +7,22 @@ import secrets
 import hashlib
 import math
 
+
+def int_from_bytes(b):
+    return int.from_bytes(b, 'big')
+
+
+def hash_message(m, curve_n):
+    return int_from_bytes(hashlib.sha256(m).digest()) % curve_n
+
+
 # Класс GM
 class GroupManager:
 
     n: int # Количество IoT
     t: int # Пороговое количество IoT
     p: int # Модуль поля Fp
+    I: int # Порядок базовой точки
     a: int # Коэффициент a
     b: int # Коэффициент b
     G: tinyec.ec.Point # Базовая точка
@@ -22,6 +32,7 @@ class GroupManager:
     M: int # Произведение t m-ок
     gs: int # Закрытый ключ группы
     gx: tinyec.ec.Point # Открытый ключ группы
+    iots: dict # Список устройств
 
     def __init__(self, n: int, t: int):
         if t >= n:
@@ -29,6 +40,7 @@ class GroupManager:
             exit(1)
         self.n = n
         self.t = t
+        self.iots = {}
 
     def GenerateElepticCurve(self):
         curve = registry.get_curve("secp256r1")
@@ -36,110 +48,59 @@ class GroupManager:
         self.a = curve.a
         self.b = curve.b
         self.G = curve.g
+        self.I = curve.field.n
 
     def GenerateGMKeys(self):
-        self.Ms = random.randint(1, self.p)
+        self.Ms = secrets.randbelow(self.I)
         self.Mx = self.Ms * self.G
-    
+
     def GenerateGroupKeys(self):
         self.m = []
-        while len(self.m) != self.n:
-            mi = secrets.randbits(128)
-            if len(self.m) == 0:
+        while len(self.m) < self.n:
+            mi = secrets.randbits(64)
+            if mi > 0 and all(GCD(mi, x) == 1 for x in self.m):
                 self.m.append(mi)
-            for i in range(len(self.m)):
-                if GCD(mi, self.m[i]) != 1:
-                    continue
-                elif i == len(self.m) - 1:
-                    self.m.append(mi)
-        self.M = math.prod(self.m[:self.t])
-        self.gs = random.randint(1, self.p)
+        self.M = 1
+        for i in range(self.t):
+            self.M *= self.m[i]
+        self.gs = secrets.randbelow(self.I)
         self.gx = self.gs * self.G
 
-class Iot:
+    def GetOpens(self):
+        return self.a, self.b, self.G, self.gx, self.M, self.Mx, self.I
 
-    def __init__(self, G, p, si, BIi2, M):
-        self.G = G
-        self.p = p
-        self.si = si        # приватный ключ
-        self.BIi2 = BIi2    # анонимный ID
-        self.M = M          # произведение m_i
+    def CheckID(self, ID: int):
+        if ID not in self.iots.keys():
+            return True
+        else:
+            return False
+        
+    def FirstAnonimization(self, ID: int):
+        r = secrets.randbelow(self.I)
+        R = r * self.G
+        ID = ID.to_bytes()
+        H = hash_message(ID, self.I)
+        BI1 = ((R.x + self.Ms) * H + r) % self.I
+        return R, BI1
+    
+    def VerifyBI2(self, U, BI2, X, BI1: int):
+        left = BI2 * self.G
+        id = BI1.to_bytes(((len(bin(BI1)) - 2) // 8) + 1)
+        right = (U.x * self.G + X) * hash_message(id, self.I) + U
+        if left == right:
+            return True
+        else:
+            return False
+        
+    def addMember(self, ID, X, BI1, BI2):
+        self.iots[ID] = [X, BI1, BI2]
+    
+    def generateSecondPartKey(self, ID):
+        mi = self.m[ID]
+        lam = pow(self.M // mi, -1, mi)
+        b = self.gs % mi
+        BI2 = self.iots[ID][2]
+        y = (lam * b) * pow(mi * BI2, -1, self.I)
+        return y
 
-        self.theta = None
-        self.sigma = None
-
-    def _hash(self, message: bytes):
-        return int.from_bytes(hashlib.sha256(message).digest(), 'big') % self.p
-
-    def GeneratePartSignature(self, message: bytes):
-        # 1. γi
-        gamma_i = secrets.randbelow(self.p)
-
-        # 2. θi = γi * G
-        self.theta = gamma_i * self.G
-        x_theta = self.theta.x
-
-        # 3. μ = h(m)
-        mu = self._hash(message)
-
-        # 4. Ji = BIi2 * M
-        Ji = (self.BIi2 * self.M) % self.p
-
-        # 5. σi = γi * xθi − μ * si * Ji mod p
-        self.sigma = (gamma_i * x_theta - mu * self.si * Ji) % self.p
-
-    def SendPartSignature(self):
-        if self.theta is None or self.sigma is None:
-            raise ValueError("Call GeneratePartSignature() first")
-
-        return {
-            "theta": self.theta,
-            "sigma": self.sigma,
-            "BIi2": self.BIi2,
-            "BIi2_encrypted": self._encrypt_identity()
-        }
-
-    # псевдо-шифрование (заглушка для статьи)
-    def _encrypt_identity(self):
-        rnd = secrets.token_bytes(16)
-        data = rnd + self.BIi2.to_bytes(32, 'big')
-        return hashlib.sha256(data).hexdigest()
-
-
-def test():
-    print("=== INIT GM ===")
-    gm = GroupManager(n=5, t=3)
-    gm.GenerateElepticCurve()
-    gm.GenerateGMKeys()
-    gm.GenerateGroupKeys()
-
-    print("p:", gm.p)
-    print("M:", gm.M)
-
-    # создаём IoT участника
-    si = random.randint(1, gm.p)
-    BIi2 = random.randint(1, gm.p)
-
-    IoT = Iot(
-        G=gm.G,
-        p=gm.p,
-        si=si,
-        BIi2=BIi2,
-        M=gm.M
-    )
-
-    message = b"Hello IoT Threshold Signature"
-
-    print("\n=== GENERATE PARTIAL SIGNATURE ===")
-    IoT.GeneratePartSignature(message)
-
-    sig = IoT.SendPartSignature()
-
-    print("Theta:", sig["theta"])
-    print("Sigma:", sig["sigma"])
-    print("BIi2:", sig["BIi2"])
-    print("Encrypted BIi2:", sig["BIi2_encrypted"])
-
-
-if __name__ == "__main__":
-    test()
+    
