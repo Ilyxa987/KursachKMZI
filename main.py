@@ -11,7 +11,7 @@ G, gx, M, Mx, I = gm.GetOpens()
 verifier = Verifier(G, I, gx)
 
 # Регистрируем 6 устройств (для наглядности)
-ids = [101, 102, 103]
+ids = [101, 102, 103, 104, 105, 106]
 devices = []
 for node_id in ids:
     device = IoT(node_id)
