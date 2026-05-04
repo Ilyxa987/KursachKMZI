@@ -11,15 +11,15 @@ def int_from_bytes(b):
 def hash_message(m, curve_n):
     if isinstance(m, str):
         m = m.encode()
-    return int_from_bytes(hashlib.sha256(m).digest()) % curve_n
+    return int.from_bytes(hashlib.sha256(m).digest()) % curve_n
 
 
 class GroupManager:
     def __init__(self, n: int, t: int):
         self.n = n
-        self.t = t
+        self.t = t                  # порог
         self.iots = {}
-        self.revoked = set()          # список отозванных ID
+        self.revoked = set()
 
     def GenerateElepticCurve(self):
         curve = registry.get_curve("secp256r1")
@@ -68,7 +68,6 @@ class GroupManager:
         self.iots[ID] = {"X": X, "BI1": BI1, "BI2": BI2}
 
     def revokeMember(self, ID):
-        """Отозвать участника, переместив его из iots в revoked"""
         if ID in self.iots:
             del self.iots[ID]
             self.revoked.add(ID)

@@ -8,19 +8,15 @@ class Verifier:
         self.gx = gx
 
     @staticmethod
-    def Aggregate(partial_sigs, I):
-        """Агрегирует частичные подписи.
-        Возвращает Theta, Sigma, Omega, список участников и количество.
-        """
+    def Aggregate(partial_sigs, I, threshold):
         Theta = None
         participants = []
-        curve_order = I   # порядок кривой (n)
         for ps in partial_sigs:
-            r = ps["theta"].x % curve_order
+            r = ps["theta"].x % I
             term = ps["theta"] * r
             Theta = term if Theta is None else Theta + term
 
-        Sigma = sum(ps["sigma"] for ps in partial_sigs) % curve_order
+        Sigma = sum(ps["sigma"] for ps in partial_sigs) % I
 
         Omega = None
         for ps in partial_sigs:
@@ -28,13 +24,15 @@ class Verifier:
             Omega = term if Omega is None else Omega + term
             participants.append(ps["node_id"])
 
-        return Theta, Sigma, Omega, participants, len(partial_sigs)
+        count = len(partial_sigs)
+        if count < threshold:
+            print(f"Агрегация невозможна: участников {count}, порог {threshold}")
+            return None, None, None, [], 0
+
+        return Theta, Sigma, Omega, participants, count
 
     def VerifySign(self, theta, sigma, Omega, m, count, participants, revoked_set):
-        """
-        Проверяет групповую подпись.
-        Возвращает True, если подпись валидна и ни один участник не отозван.
-        """
+        # Жёсткая проверка: любой отозванный участник делает подпись невалидной
         for pid in participants:
             if pid in revoked_set:
                 return False
