@@ -11,13 +11,13 @@ def int_from_bytes(b):
 def hash_message(m, curve_n):
     if isinstance(m, str):
         m = m.encode()
-    return int.from_bytes(hashlib.sha256(m).digest()) % curve_n
+    return int_from_bytes(hashlib.sha256(m).digest()) % curve_n
 
 
 class GroupManager:
     def __init__(self, n: int, t: int):
         self.n = n
-        self.t = t                  # порог
+        self.t = t
         self.iots = {}
         self.revoked = set()
 
@@ -46,6 +46,7 @@ class GroupManager:
             self.M *= self.m[i]
 
     def GetOpens(self):
+        """Возвращает открытые параметры группы (без RSA-ключей)"""
         return self.G, self.gx, self.M, self.Mx, self.I
 
     def CheckID(self, ID: int):
@@ -64,8 +65,14 @@ class GroupManager:
         right = (U.x * self.G + X) * H + U
         return left == right
 
-    def addMember(self, ID, X, BI1, BI2):
-        self.iots[ID] = {"X": X, "BI1": BI1, "BI2": BI2}
+    def addMember(self, ID, X, BI1, BI2, pub_enc_key):
+        """Сохраняет данные участника, включая его открытый RSA-ключ"""
+        self.iots[ID] = {
+            "X": X,
+            "BI1": BI1,
+            "BI2": BI2,
+            "pub_enc": pub_enc_key   # (e, n)
+        }
 
     def revokeMember(self, ID):
         if ID in self.iots:
@@ -78,7 +85,13 @@ class GroupManager:
         return ID in self.revoked
 
     def generateSecondPartKey(self, ID):
+        """Шифрует y открытым ключом устройства и возвращает шифротекст"""
         BI2 = self.iots[ID]["BI2"]
+        e_device, n_device = self.iots[ID]["pub_enc"]
+
         inv_BI2 = pow(BI2, -1, self.I)
         y = (self.gs * inv_BI2) % self.I
-        return y
+
+        # Шифруем y открытым ключом устройства
+        encrypted_y = pow(y, e_device, n_device)
+        return encrypted_y

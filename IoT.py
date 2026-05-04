@@ -1,10 +1,21 @@
 import secrets
+from Crypto.PublicKey import RSA
 from GM import hash_message
 
 
 class IoT:
     def __init__(self, node_id):
         self.node_id = node_id
+        # Генерируем RSA-ключи для получения зашифрованного y
+        self._gen_encryption_keys()
+
+    def _gen_encryption_keys(self):
+        key = RSA.generate(2048)
+        self.pub_enc = (key.e, key.n)   # открытый ключ (e, n)
+        self.priv_enc = key.d           # закрытый ключ d
+
+    def get_public_enc_key(self):
+        return self.pub_enc
 
     def setOpens(self, G, gx, M, Mx, I):
         self.G = G
@@ -33,7 +44,12 @@ class IoT:
         self.BI2 = ((U.x + self.x) * H + u) % self.I
         return U, self.BI2
 
-    def generateKey(self, y):
+    def decrypt_y(self, encrypted_y):
+        """Расшифровывает y своим закрытым RSA-ключом"""
+        return pow(encrypted_y, self.priv_enc, self.pub_enc[1])
+
+    def generateKey(self, encrypted_y):
+        y = self.decrypt_y(encrypted_y)
         self.s = (self.x + y) % self.I
 
     def generatePartSignature(self, m):

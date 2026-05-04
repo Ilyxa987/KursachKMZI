@@ -32,7 +32,6 @@ class Verifier:
         return Theta, Sigma, Omega, participants, count
 
     def VerifySign(self, theta, sigma, Omega, m, count, participants, revoked_set):
-        # Жёсткая проверка: любой отозванный участник делает подпись невалидной
         for pid in participants:
             if pid in revoked_set:
                 return False

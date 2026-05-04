@@ -6,6 +6,9 @@
   <component name="ChangeListManager">
     <list default="true" id="32233ad9-909a-458b-bde8-e9c3934efaa9" name="Changes" comment="k">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/GM.py" beforeDir="false" afterPath="$PROJECT_DIR$/GM.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/IoT.py" beforeDir="false" afterPath="$PROJECT_DIR$/IoT.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Verifier.py" beforeDir="false" afterPath="$PROJECT_DIR$/Verifier.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -183,7 +186,15 @@
       <option name="project" value="LOCAL" />
       <updated>1777921007877</updated>
     </task>
-    <option name="localTasksCounter" value="12" />
+    <task id="LOCAL-00012" summary="k">
+      <option name="closed" value="true" />
+      <created>1777921721159</created>
+      <option name="number" value="00012" />
+      <option name="presentableId" value="LOCAL-00012" />
+      <option name="project" value="LOCAL" />
+      <updated>1777921721159</updated>
+    </task>
+    <option name="localTasksCounter" value="13" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
