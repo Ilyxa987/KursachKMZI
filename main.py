@@ -1,7 +1,6 @@
 from GM import GroupManager
 from IoT import IoT
-from TSG import TSG
-from Verifyer import Verifier
+from Verifier import Verifier
 
 # 1. Инициализация GM
 gm = GroupManager(n=5, t=3)
@@ -10,41 +9,46 @@ gm.GenerateGMKeys()
 gm.GenerateGroupKeys()
 G, gx, M, Mx, I = gm.GetOpens()
 
-# 2. Инициализация TSG
-tsg = TSG()
-tsg.set_params(G, I, gx)
-PK, N = tsg.PK
+# 2. Создаём верификатор
+verifier = Verifier(G, I, gx)
 
-# 3. Регистрация двух IoT устройств
-ids = [101, 102]
-device_list = []
+# 3. Регистрируем три устройства
+ids = [101, 102, 103]
+devices = []
 for node_id in ids:
     device = IoT(node_id)
     device.setOpens(G, gx, M, Mx, I)
 
-    # Этап 1
     R, BI1 = gm.FirstAnonimization(node_id)
     if device.VerifyBI1(R, BI1):
-        # Этап 2
         device.GenerateFirstPartKey()
         U, BI2 = device.secondAnonimization()
         gm.addMember(node_id, device.X, BI1, BI2)
 
-        # Генерация ключа с правильным y
         y = gm.generateSecondPartKey(node_id)
         device.generateKey(y)
-        device_list.append(device)
+        devices.append(device)
         print(f"Устройство {node_id} зарегистрировано.")
 
-# 4. Подпись сообщения всеми устройствами
+# 4. Подписываем сообщение ВСЕМИ устройствами
 msg = "Test Message"
-p_sigs = [d.generatePartSignature(msg, PK, N) for d in device_list]
+partial_sigs_all = [d.generatePartSignature(msg) for d in devices]
 
-# 5. Агрегация и проверка
-Theta, Sigma, Omega, count = tsg.Aggregate(p_sigs, msg)
-v = Verifier(G, I, gx)
+Theta, Sigma, Omega, participants, count = Verifier.Aggregate(partial_sigs_all, I)
+valid = verifier.VerifySign(Theta, Sigma, Omega, msg, count, participants, gm.revoked)
+print(f"\nПодпись всех устройств валидна: {valid}")
 
-if v.VerifySign(Theta, Sigma, Omega, msg, count):
-    print("\n[УСПЕХ] Групповая подпись подтверждена!")
-else:
-    print("\n[ОШИБКА] Подпись не валидна.")
+# 5. Отзываем устройство 102
+gm.revokeMember(102)
+print(f"Устройство 102 отозвано. Текущий список отозванных: {gm.revoked}")
+
+# 6. Проверяем старую подпись – должна быть отвергнута
+valid_revoked = verifier.VerifySign(Theta, Sigma, Omega, msg, count, participants, gm.revoked)
+print(f"Та же подпись после отзыва: {valid_revoked} (ожидается False)")
+
+# 7. Новая подпись только оставшимися (101 и 103)
+remaining = [d for d in devices if d.node_id != 102]
+partial_sigs_new = [d.generatePartSignature(msg) for d in remaining]
+Theta_n, Sigma_n, Omega_n, participants_n, count_n = Verifier.Aggregate(partial_sigs_new, I)
+valid_new = verifier.VerifySign(Theta_n, Sigma_n, Omega_n, msg, count_n, participants_n, gm.revoked)
+print(f"Новая подпись без отозванного: {valid_new} (ожидается True)")

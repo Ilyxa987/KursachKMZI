@@ -36,23 +36,21 @@ class IoT:
     def generateKey(self, y):
         self.s = (self.x + y) % self.I
 
-    def generatePartSignature(self, m, PK, N):
+    def generatePartSignature(self, m):
         mu = hash_message(m, self.I)
 
         gamma = secrets.randbelow(self.I)
         theta = gamma * self.G
         r_i = theta.x % self.I
 
-        # J_i = BI2 (без M)
         J_i = self.BI2 % self.I
 
         sigma_i = (gamma * r_i - mu * self.s * J_i) % self.I
-        cipherBI2 = pow(self.BI2, PK, N)
 
         return {
+            "node_id": self.node_id,   # для отслеживания участников
             "theta": theta,
             "sigma": sigma_i,
-            "cipher": cipherBI2,
             "X": self.X,
             "J": J_i
         }

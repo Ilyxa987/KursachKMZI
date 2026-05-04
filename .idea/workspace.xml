@@ -4,7 +4,15 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="32233ad9-909a-458b-bde8-e9c3934efaa9" name="Changes" comment="k" />
+    <list default="true" id="32233ad9-909a-458b-bde8-e9c3934efaa9" name="Changes" comment="k">
+      <change afterPath="$PROJECT_DIR$/Verifier.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/GM.py" beforeDir="false" afterPath="$PROJECT_DIR$/GM.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/IoT.py" beforeDir="false" afterPath="$PROJECT_DIR$/IoT.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/TSG.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Verifyer.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -20,7 +28,7 @@
   <component name="Git.Settings">
     <option name="RECENT_BRANCH_BY_REPOSITORY">
       <map>
-        <entry key="$PROJECT_DIR$" value="main" />
+        <entry key="$PROJECT_DIR$" value="Ик2" />
       </map>
     </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -42,7 +50,7 @@
     "Python.main.executor": "Run",
     "RunOnceActivity.OpenProjectViewOnStart": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
-    "git-widget-placeholder": "Ик",
+    "git-widget-placeholder": "Ик2",
     "last_opened_file_path": "D:/labs_4kyrs_8semestr/PythonProject/KMZI_сourse/KursachKMZI",
     "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable"
   }

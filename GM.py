@@ -19,6 +19,7 @@ class GroupManager:
         self.n = n
         self.t = t
         self.iots = {}
+        self.revoked = set()          # список отозванных ID
 
     def GenerateElepticCurve(self):
         curve = registry.get_curve("secp256r1")
@@ -48,7 +49,7 @@ class GroupManager:
         return self.G, self.gx, self.M, self.Mx, self.I
 
     def CheckID(self, ID: int):
-        return ID not in self.iots
+        return ID not in self.iots and ID not in self.revoked
 
     def FirstAnonimization(self, ID: int):
         r = secrets.randbelow(self.I)
@@ -65,6 +66,17 @@ class GroupManager:
 
     def addMember(self, ID, X, BI1, BI2):
         self.iots[ID] = {"X": X, "BI1": BI1, "BI2": BI2}
+
+    def revokeMember(self, ID):
+        """Отозвать участника, переместив его из iots в revoked"""
+        if ID in self.iots:
+            del self.iots[ID]
+            self.revoked.add(ID)
+            return True
+        return False
+
+    def is_revoked(self, ID):
+        return ID in self.revoked
 
     def generateSecondPartKey(self, ID):
         BI2 = self.iots[ID]["BI2"]
