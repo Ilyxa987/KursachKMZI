@@ -2,9 +2,10 @@ from GM import GroupManager
 from IoT import IoT
 from TSG import TSG
 from Verifyer import Verifier
+import time
 
 # 1. Инициализация GM
-gm = GroupManager(n=5, t=3)
+gm = GroupManager(n=1000, t=300)
 gm.GenerateElepticCurve()
 gm.GenerateGMKeys()
 gm.GenerateGroupKeys()
@@ -16,8 +17,9 @@ tsg.set_params(G, I, gx)
 PK, N = tsg.PK
 
 # 3. Регистрация двух IoT устройств
-ids = [101, 102]
+ids = [x for x in range(101, 1101)]
 device_list = []
+t = time.time()
 for node_id in ids:
     device = IoT(node_id)
     device.setOpens(G, gx, M, Mx, I)
@@ -34,14 +36,17 @@ for node_id in ids:
         y = gm.generateSecondPartKey(node_id)
         device.generateKey(y)
         device_list.append(device)
-        print(f"Устройство {node_id} зарегистрировано.")
+        #print(f"Устройство {node_id} зарегистрировано.")
 
+print(f"\nЗарегистрировано {len(device_list)} устройств за {time.time() - t:.2f} секунд.")
 # 4. Подпись сообщения всеми устройствами
 msg = "Test Message"
+t = time.time()
 p_sigs = [d.generatePartSignature(msg, PK, N) for d in device_list]
 
 # 5. Агрегация и проверка
 Theta, Sigma, Omega, count = tsg.Aggregate(p_sigs, msg)
+print(f"\nАгрегация завершена за {time.time() - t:.2f} секунд.")
 v = Verifier(G, I, gx)
 
 if v.VerifySign(Theta, Sigma, Omega, msg, count):
