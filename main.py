@@ -2,67 +2,104 @@ from GM import GroupManager
 from IoT import IoT
 from Verifier import Verifier
 
-# Инициализация
+# 1. Инициализация GM
 gm = GroupManager(n=5, t=3)
 gm.GenerateElepticCurve()
 gm.GenerateGMKeys()
 gm.GenerateGroupKeys()
 G, gx, M, Mx, I = gm.GetOpens()
-verifier = Verifier(G, I, gx)
 
-# Регистрируем 6 устройств (для наглядности)
-ids = [101, 102, 103]
+# 2. Регистрируем устройства
+ids = [101, 102, 103, 104, 105, 106]
 devices = []
 for node_id in ids:
-    device = IoT(node_id)
-    device.setOpens(G, gx, M, Mx, I)
+    dev = IoT(node_id)
+    dev.setOpens(G, gx, M, Mx, I)
+    pub_enc = dev.get_public_enc_key()
     R, BI1 = gm.FirstAnonimization(node_id)
-    if device.VerifyBI1(R, BI1):
-        device.GenerateFirstPartKey()
-        U, BI2 = device.secondAnonimization()
-        gm.addMember(node_id, device.X, BI1, BI2)
-        y = gm.generateSecondPartKey(node_id)
-        device.generateKey(y)
-        devices.append(device)
+    if dev.VerifyBI1(R, BI1):
+        dev.GenerateFirstPartKey()
+        U, BI2 = dev.secondAnonimization()
+        gm.addMember(node_id, dev.X, BI1, BI2, pub_enc)
+        enc_y = gm.generateSecondPartKey(node_id)
+        dev.generateKey(enc_y)
+        devices.append(dev)
         print(f"Устройство {node_id} зарегистрировано.")
 
-# Сообщение для подписи
+# 3. Сообщаем каждому устройству полный список активных ID (все зарегистрированные)
+active_ids = [d.node_id for d in devices]
+for dev in devices:
+    dev.set_active_nodes(active_ids)
+
 msg = "Test Message"
 
-# --- 1. Полная подпись (все 6 устройств) ---
-partial_all = [d.generatePartSignature(msg) for d in devices]
-Theta, Sigma, Omega, parts, cnt = Verifier.Aggregate(partial_all, I, gm.t)
-valid_all = verifier.VerifySign(Theta, Sigma, Omega, msg, cnt, parts, gm.revoked)
-print(f"\nПодпись всех устройств: {valid_all} (True)")
+# 4. Выбор общего лидера (все устройства вычисляют одинаково)
+leader_id = devices[0].elect_leader()  # используем любое устройство, результат одинаков
+print(f"\nВыбран лидер: устройство {leader_id}")
 
-# --- 2. Отзываем устройство 102 ---
+# Найдём объект лидера
+leader = next(d for d in devices if d.node_id == leader_id)
+
+# 5. Все устройства генерируют частичные подписи
+partial_sigs_dict = {}
+for dev in devices:
+    ps = dev.generatePartSignature(msg)
+    partial_sigs_dict[dev.node_id] = ps
+
+# 6. Лидер собирает подписи (в реальности получает по сети) и агрегирует
+group_sig = leader.aggregate_signatures(partial_sigs_dict, gm.t)
+if group_sig[0] is None:
+    print("Не удалось агрегировать подпись (недостаточно участников).")
+    exit()
+
+Theta, Sigma, Omega, participants, count = group_sig
+print("Агрегированная групповая подпись сформирована.")
+
+# 7. Лидер рассылает подпись (broadcast)
+leader.broadcast_signature(group_sig)
+
+# 8. Каждое устройство проверяет полученную подпись
+print("\nПроверка подписи всеми устройствами:")
+for dev in devices:
+    valid = dev.verify_group_signature(group_sig, msg, gm.revoked)
+    print(f"Устройство {dev.node_id}: {valid}")
+
+# 9. Отзыв устройства 102
+print("\n--- Отзыв устройства 102 ---")
 gm.revokeMember(102)
-print(f"\nОтозвано устройство 102. Отозванные: {gm.revoked}")
-# Старая подпись (с участием 102) – невалидна
-valid_old = verifier.VerifySign(Theta, Sigma, Omega, msg, cnt, parts, gm.revoked)
-print(f"Старая подпись после отзыва 102: {valid_old} (False)")
 
-# --- 3. Новая подпись без отозванного (оставшиеся 5 ≥ 3) ---
-remaining = [d for d in devices if d.node_id != 102]  # 5 устройств
-partial_new = [d.generatePartSignature(msg) for d in remaining]
-Theta_n, Sigma_n, Omega_n, parts_n, cnt_n = Verifier.Aggregate(partial_new, I, gm.t)
-if Theta_n is not None:
-    valid_new = verifier.VerifySign(Theta_n, Sigma_n, Omega_n, msg, cnt_n, parts_n, gm.revoked)
-    print(f"Новая подпись (5 участников): {valid_new} (True)")
+# Проверка старой подписи теперь недействительна для всех
+print("Проверка старой подписи после отзыва:")
+for dev in devices:
+    valid = dev.verify_group_signature(group_sig, msg, gm.revoked)
+    print(f"Устройство {dev.node_id}: {valid}")
 
-# --- 4. Отзываем ещё устройства, чтобы оставшихся стало меньше порога ---
-for rid in [103, 104, 105]:   # отзываем 103,104,105
-    gm.revokeMember(rid)
-print(f"\nДополнительно отозваны 103,104,105. Отозванные: {gm.revoked}")
+# 10. Формирование новой подписи без отозванного участника
+active_after = [d for d in devices if d.node_id not in gm.revoked]
+if len(active_after) >= gm.t:
+    # Обновляем списки активных узлов
+    new_active_ids = [d.node_id for d in active_after]
+    for d in active_after:
+        d.set_active_nodes(new_active_ids)
 
-# Оставшиеся: только 101 и 106 (2 устройства, порог 3)
-remaining_few = [d for d in devices if d.node_id not in gm.revoked]
-print(f"Оставшиеся участники: {[d.node_id for d in remaining_few]} (количество: {len(remaining_few)})")
+    # Новый лидер
+    new_leader_id = active_after[0].elect_leader()
+    new_leader = next(d for d in active_after if d.node_id == new_leader_id)
+    print(f"\nНовый лидер: устройство {new_leader_id}")
 
-# Попытка агрегации – должна вернуть None
-partial_few = [d.generatePartSignature(msg) for d in remaining_few]
-Theta_f, Sigma_f, Omega_f, parts_f, cnt_f = Verifier.Aggregate(partial_few, I, gm.t)
-if Theta_f is None:
-    print("Новая подпись НЕ создана – недостаточное количество участников (порог 3).")
+    # Сбор частичных подписей
+    new_partial = {}
+    for d in active_after:
+        new_partial[d.node_id] = d.generatePartSignature(msg)
+
+    new_group_sig = new_leader.aggregate_signatures(new_partial, gm.t)
+    if new_group_sig[0] is not None:
+        new_leader.broadcast_signature(new_group_sig)
+        print("\nПроверка новой подписи оставшимися устройствами:")
+        for d in active_after:
+            valid = d.verify_group_signature(new_group_sig, msg, gm.revoked)
+            print(f"Устройство {d.node_id}: {valid}")
+    else:
+        print("Не удалось создать новую подпись (порог не пройден).")
 else:
-    print("Этого не должно произойти.")
+    print("Недостаточно активных устройств для создания новой подписи.")

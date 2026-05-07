@@ -82,7 +82,7 @@ class IoT:
 
     def aggregate_signatures(self, partial_sigs_dict, threshold):
         p_list = []
-        for pid in sorted(partial_sigs_dict.keys()):
+        for pid in sorted(partial_sigs_dict.keys()):  # детерминированный порядок
             p_list.append(partial_sigs_dict[pid])
         return Verifier.Aggregate(p_list, self.I, threshold)
 
