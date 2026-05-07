@@ -1,18 +1,24 @@
 import secrets
 from Crypto.PublicKey import RSA
 from GM import hash_message
+from Verifier import Verifier
 
 
 class IoT:
     def __init__(self, node_id):
         self.node_id = node_id
-        # Генерируем RSA-ключи для получения зашифрованного y
         self._gen_encryption_keys()
+        self.active_nodes = []          # ID всех устройств группы (включая себя)
+        self.G = None
+        self.I = None
+        self.gx = None
+        self.M = None
+        self.Mx = None
 
     def _gen_encryption_keys(self):
         key = RSA.generate(2048)
-        self.pub_enc = (key.e, key.n)   # открытый ключ (e, n)
-        self.priv_enc = key.d           # закрытый ключ d
+        self.pub_enc = (key.e, key.n)
+        self.priv_enc = key.d
 
     def get_public_enc_key(self):
         return self.pub_enc
@@ -23,6 +29,14 @@ class IoT:
         self.M = M
         self.Mx = Mx
         self.I = I
+
+    def set_active_nodes(self, node_ids):
+        self.active_nodes = node_ids
+
+    def elect_leader(self, context=b""):
+        if not self.active_nodes:
+            return None
+        return sorted(self.active_nodes)[0]
 
     def VerifyBI1(self, R, BI1):
         H = hash_message(str(self.node_id), self.I)
@@ -45,7 +59,6 @@ class IoT:
         return U, self.BI2
 
     def decrypt_y(self, encrypted_y):
-        """Расшифровывает y своим закрытым RSA-ключом"""
         return pow(encrypted_y, self.priv_enc, self.pub_enc[1])
 
     def generateKey(self, encrypted_y):
@@ -66,3 +79,17 @@ class IoT:
             "X": self.X,
             "J": J_i
         }
+
+    def aggregate_signatures(self, partial_sigs_dict, threshold):
+        p_list = []
+        for pid in sorted(partial_sigs_dict.keys()):
+            p_list.append(partial_sigs_dict[pid])
+        return Verifier.Aggregate(p_list, self.I, threshold)
+
+    def verify_group_signature(self, group_sig, msg, revoked_set):
+        Theta, Sigma, Omega, participants, count = group_sig
+        v = Verifier(self.G, self.I, self.gx)
+        return v.VerifySign(Theta, Sigma, Omega, msg, count, participants, revoked_set)
+
+    def broadcast_signature(self, group_sig):
+        print(f"Устройство {self.node_id} (лидер) рассылает групповую подпись: {group_sig}")

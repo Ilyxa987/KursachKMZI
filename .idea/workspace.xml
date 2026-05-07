@@ -6,10 +6,7 @@
   <component name="ChangeListManager">
     <list default="true" id="32233ad9-909a-458b-bde8-e9c3934efaa9" name="Changes" comment="k">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/GM.py" beforeDir="false" afterPath="$PROJECT_DIR$/GM.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/IoT.py" beforeDir="false" afterPath="$PROJECT_DIR$/IoT.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Verifier.py" beforeDir="false" afterPath="$PROJECT_DIR$/Verifier.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -39,20 +36,20 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "Python.GM.executor": "Run",
-    "Python.IoT.executor": "Run",
-    "Python.TSG.executor": "Run",
-    "Python.Verifyer.executor": "Run",
-    "Python.main.executor": "Run",
-    "RunOnceActivity.OpenProjectViewOnStart": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "git-widget-placeholder": "Ик3",
-    "last_opened_file_path": "D:/labs_4kyrs_8semestr/PythonProject/KMZI_сourse/KursachKMZI",
-    "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Python.GM.executor&quot;: &quot;Run&quot;,
+    &quot;Python.IoT.executor&quot;: &quot;Run&quot;,
+    &quot;Python.TSG.executor&quot;: &quot;Run&quot;,
+    &quot;Python.Verifyer.executor&quot;: &quot;Run&quot;,
+    &quot;Python.main.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;Ик3&quot;,
+    &quot;last_opened_file_path&quot;: &quot;D:/labs_4kyrs_8semestr/PythonProject/KMZI_сourse/KursachKMZI&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable&quot;
   }
-}]]></component>
+}</component>
   <component name="RunManager">
     <configuration name="main" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="KursachKMZI" />
@@ -194,7 +191,15 @@
       <option name="project" value="LOCAL" />
       <updated>1777921721159</updated>
     </task>
-    <option name="localTasksCounter" value="13" />
+    <task id="LOCAL-00013" summary="k">
+      <option name="closed" value="true" />
+      <created>1777922835610</created>
+      <option name="number" value="00013" />
+      <option name="presentableId" value="LOCAL-00013" />
+      <option name="project" value="LOCAL" />
+      <updated>1777922835610</updated>
+    </task>
+    <option name="localTasksCounter" value="14" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
